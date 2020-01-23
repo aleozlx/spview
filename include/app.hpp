@@ -3,39 +3,64 @@
 #include <list>
 #include <memory>
 #include "imgui.h"
+
+#if FEATURE_DirectX
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx11.h"
+#include <d3d11.h>
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
+#include <tchar.h>
+#endif
+
+#if FEATURE_OpenGL
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#endif
 
-/// ImGui App boiler plates
-class App final {
+namespace spview::AppEngine {
+#if FEATURE_DirectX
+    extern WNDCLASSEX wc;
+    extern HWND hwnd;
+#else
+    extern GLFWwindow* window;
+#endif
+
+    class App final {
     public:
-    int ok;
-    GLFWwindow* window;
-    const char* glsl_version;
+        int ok;
+        const char *version_string;
 
-    App(App&&) = default;
-    App& operator=(App&&) = default;
-    App (const App &) = delete;
-    App& operator=(const App &) = delete;
-    ~App() { this->Shutdown(); }
+        App(App &&) = default;
 
-    inline static App Ok(GLFWwindow* w, const char* glsl_version) {
-        return {.ok=1, .window=w, .glsl_version=glsl_version};
-    }
+        App &operator=(App &&) = default;
 
-    inline static App Err() {
-        return {.ok=0, .window=nullptr, .glsl_version=nullptr};
-    }
+        App(const App &) = delete;
 
-    static App Initialize();
-    bool EventLoop();
-    void Render(const ImVec4 &clear_color);
+        App &operator=(const App &) = delete;
+
+        ~App() { this->Shutdown(); }
+
+        inline static App Ok(const char *version_string = nullptr) {
+            return {1};
+        }
+
+        inline static App Err() {
+            return {0};
+        }
+
+        static App Initialize();
+
+        bool EventLoop();
+
+        void Render(const ImVec4 &clear_color);
 
     private:
-    void Shutdown();
-};
+        void Shutdown();
+    };
+}
 
 class IWindow {
     public:
@@ -48,10 +73,11 @@ class IWindow {
             "0123456789"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             "abcdefghijklmnopqrstuvwxyz";
-        char buf[len+1];
+        char *buf = new char[len+1];
         buf[len] = '\0';
         for (int i = 0; i < len; ++i)
             buf[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+        delete[] buf;
         return std::string(buf);
     }
 };
@@ -67,15 +93,15 @@ class IStaticWindow: public IWindow {
 
 // TODO Consider visitor pattern?
 // Provides a data binding interface for ImGui
-template <typename Tdst>
-class IBinding {
-    public:
-    virtual Tdst Export() const = 0;
-    virtual void Import(const Tdst &dst) = 0;
-
-    private:
-    IBinding() {} // Implicit interface, do NOT inherit
-};
+//template <typename Tdst>
+//class IBinding {
+//    public:
+//    virtual Tdst Export() const = 0;
+//    virtual void Import(const Tdst &dst) = 0;
+//
+//    private:
+//    IBinding() {} // Implicit interface, do NOT inherit
+//};
 
 class TestWindow: public IWindow {
     public:
@@ -121,7 +147,5 @@ struct Binding {
         this->source.Import(this->binding);
     }
 };
-
-GLuint LoadShaders(const char *fname_vert, const char *fname_frag);
 
 #endif
