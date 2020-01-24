@@ -10,9 +10,9 @@
 #include "imgui_impl_dx11.h"
 #include <d3d11.h>
 
-namespace spview::AppEngine {
-    extern ID3D11Device* g_pd3dDevice;
-}
+//namespace spview::AppEngine {
+//    extern ID3D11Device* g_pd3dDevice;
+//}
 #endif
 
 #if FEATURE_OpenGL
@@ -25,6 +25,7 @@ namespace spview {
     class TexImage {
     private:
 #if FEATURE_DirectX
+        ID3D11Device *g_pd3dDevice;
         ID3D11ShaderResourceView *texid;
 #elif FEATURE_OpenGL
         GLuint texid;
@@ -49,6 +50,7 @@ namespace spview {
 
         void Load(const unsigned char *data) {
 #if FEATURE_DirectX
+            g_pd3dDevice = AppEngine::App::GetDXDevice();
             // Create texture
             D3D11_TEXTURE2D_DESC desc;
             ZeroMemory(&desc, sizeof(desc));
@@ -67,7 +69,7 @@ namespace spview {
             subResource.pSysMem = data;
             subResource.SysMemPitch = desc.Width * 4;
             subResource.SysMemSlicePitch = 0;
-            AppEngine::g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
+            g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
 
             // Create texture view
             D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -76,7 +78,7 @@ namespace spview {
             srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
             srvDesc.Texture2D.MipLevels = desc.MipLevels;
             srvDesc.Texture2D.MostDetailedMip = 0;
-            AppEngine::g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &texid);
+            g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &texid);
             pTexture->Release();
 #elif FEATURE_OpenGL
             this->texid = SOIL_create_OGL_texture(

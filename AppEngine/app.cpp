@@ -4,6 +4,10 @@
 #include <vector>
 #include "app.hpp"
 
+//#if WIN32
+//#include "app_engine_export.h"
+//#endif
+
 #if FEATURE_DirectX
 // Win32 message handler
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -32,6 +36,10 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+ID3D11Device* App::GetDXDevice() {
+    return g_pd3dDevice;
+}
 #endif
 
 #if FEATURE_OpenGL

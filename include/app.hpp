@@ -57,6 +57,10 @@ namespace spview::AppEngine {
 
         void Render(const ImVec4 &clear_color);
 
+#if FEATURE_DirectX
+        static ID3D11Device* GetDXDevice();
+#endif
+
     private:
         void Shutdown();
     };
