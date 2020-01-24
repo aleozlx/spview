@@ -1,8 +1,14 @@
+# Visual Studio
 .vs/
+CMakeSettings.json
+
+# Clion
 .idea/
+
+# Build
 build/
 target/
 
-# ImGui parameters
+# ImGui
 *.ini
 

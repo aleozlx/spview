@@ -15,6 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
 # GUI Packages
 if(FEATURE_GUI)
     add_subdirectory(AppEngine)
+    add_subdirectory(SuperpixelRoutines)
     add_subdirectory(AppDemo)
 endif()
 
