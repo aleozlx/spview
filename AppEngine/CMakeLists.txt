@@ -37,6 +37,8 @@ if(FEATURE_DirectX)
     add_library(app_engine STATIC ${CMAKE_CURRENT_SOURCE_DIR}/app.cpp ${root}/examples/imgui_impl_win32.cpp ${root}/examples/imgui_impl_dx11.cpp)
     target_include_directories(app_engine PUBLIC ${root}/examples)
     target_link_libraries(app_engine imgui d3d11 dxguid)
+
+#    Just don't do DLLs
 #    include(GenerateExportHeader)
 #    generate_export_header(app_engine)
 else()

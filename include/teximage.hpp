@@ -9,10 +9,6 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
 #include <d3d11.h>
-
-//namespace spview::AppEngine {
-//    extern ID3D11Device* g_pd3dDevice;
-//}
 #endif
 
 #if FEATURE_OpenGL
