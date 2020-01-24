@@ -8,6 +8,7 @@ option(FEATURE_DirectX "Use DirectX instead of OpenGL" OFF)
 option(FEATURE_GUI "Enable GUI" ON)
 
 # Global Config
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
 
