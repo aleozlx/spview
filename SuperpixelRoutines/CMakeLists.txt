@@ -1,17 +1,19 @@
 cmake_minimum_required(VERSION 3.8)
 project ("sproutine")
-
+enable_language(CUDA)
 set(CMAKE_CXX_STANDARD 17)
 set(OpenGL_GL_PREFERENCE GLVND)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
 find_package(OpenCV REQUIRED)
-find_package(CUDA 10)
+find_package(CUDA REQUIRED 10)
 
 # gSLIC Library
 if(CUDA_FOUND)
-    set(CFLAGS_WARN "-Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing")
-    set(CMAKE_CXX_FLAGS "-fPIC -O3 -march=native ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
+    if(NOT MSVC)
+        set(CFLAGS_WARN "-Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing")
+        set(CMAKE_CXX_FLAGS "-fPIC -O3 -march=native ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
+    endif()
     include_directories(${CUDA_INCLUDE_DIRS})
     include_directories(${OpenCV_INCLUDE_DIRS})
     set(GSLICR_LIB
@@ -30,7 +32,8 @@ if(CUDA_FOUND)
     cuda_add_library(gSLICr
             ${GSLICR_LIB}
             OPTIONS
-            -gencode arch=compute_30,code=compute_30
-            -gencode arch=compute_61,code=compute_61)
+            -gencode arch=compute_61,code=compute_61
+            -gencode arch=compute_70,code=compute_70
+            -gencode arch=compute_75,code=compute_75)
     target_link_libraries(gSLICr ${CUDA_LIBRARY})
 endif()
