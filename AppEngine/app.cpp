@@ -1,3 +1,4 @@
+#include "..\include\app.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -35,6 +36,10 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 ID3D11Device* App::GetDXDevice() {
     return g_pd3dDevice;
+}
+
+ID3D11DeviceContext* App::GetDXDeviceContext() {
+	return g_pd3dDeviceContext;
 }
 #endif
 

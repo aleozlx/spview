@@ -59,6 +59,7 @@ namespace spview::AppEngine {
 
 #if FEATURE_DirectX
         static ID3D11Device* GetDXDevice();
+		static ID3D11DeviceContext* GetDXDeviceContext();
 #endif
 
     private:

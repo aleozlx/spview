@@ -22,7 +22,11 @@ namespace spview {
     private:
 #if FEATURE_DirectX
         ID3D11Device *g_pd3dDevice;
+		ID3D11DeviceContext* g_pd3dDeviceContext;
         ID3D11ShaderResourceView *texid;
+		D3D11_TEXTURE2D_DESC tex_desc;
+		ID3D11Texture2D *pTexture;
+		//D3D11_MAPPED_SUBRESOURCE mappedResource;
 #elif FEATURE_OpenGL
         GLuint texid;
 #endif
@@ -38,7 +42,29 @@ namespace spview {
             this->height = height;
             this->f32height = (float) height;
             this->channels = channels;
+#if FEATURE_DirectX
+			g_pd3dDevice = AppEngine::App::GetDXDevice();
+			g_pd3dDeviceContext = AppEngine::App::GetDXDeviceContext();
+			ZeroMemory(&tex_desc, sizeof(tex_desc));
+			tex_desc.Width = width;
+			tex_desc.Height = height;
+			tex_desc.MipLevels = 1;
+			tex_desc.ArraySize = 1;
+			// TODO add support for `channels`
+			// ref: https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
+			tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			tex_desc.SampleDesc.Count = 1;
+			tex_desc.Usage = D3D11_USAGE_DYNAMIC;
+			tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			tex_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			pTexture = NULL;
+			//ZeroMemory(&mappedResource, sizeof(D3D11_MAPPED_SUBRESOURCE));
+#endif
         }
+
+		virtual ~TexImage() {
+			if (pTexture != NULL) pTexture->Release();
+		}
 
         inline ImTextureID id() {
             return reinterpret_cast<void *>(texid);
@@ -46,38 +72,30 @@ namespace spview {
 
         void Load(const unsigned char *data) {
 #if FEATURE_DirectX
-            g_pd3dDevice = AppEngine::App::GetDXDevice();
-            // Create texture
-            D3D11_TEXTURE2D_DESC desc;
-            ZeroMemory(&desc, sizeof(desc));
-            desc.Width = width;
-            desc.Height = height;
-            desc.MipLevels = 1;
-            desc.ArraySize = 1;
-            // TODO add support for `channels`
-            // ref: https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
-            desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-            desc.SampleDesc.Count = 1;
-            desc.Usage = D3D11_USAGE_DEFAULT;
-            desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-            desc.CPUAccessFlags = 0;
+			D3D11_SUBRESOURCE_DATA subResource;
+			subResource.pSysMem = data;
+			subResource.SysMemPitch = tex_desc.Width * 4;
+			subResource.SysMemSlicePitch = 0;
+			if (pTexture == NULL) {
+				g_pd3dDevice->CreateTexture2D(&tex_desc, &subResource, &pTexture);
+				D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+				ZeroMemory(&srvDesc, sizeof(srvDesc));
+				srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+				srvDesc.Texture2D.MipLevels = tex_desc.MipLevels;
+				srvDesc.Texture2D.MostDetailedMip = 0;
+				g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &texid);
+			}
+			else {
+				// Cannot figure out the issue with texture format
+				// ref: https://docs.microsoft.com/en-us/windows/win32/direct3d11/how-to--use-dynamic-resources
+				//g_pd3dDeviceContext->Map(pTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				//memcpy(mappedResource.pData, data, width*height*4); // TODO hard-coded size
+				//g_pd3dDeviceContext->Unmap(pTexture, 0);
 
-            ID3D11Texture2D *pTexture = NULL;
-            D3D11_SUBRESOURCE_DATA subResource;
-            subResource.pSysMem = data;
-            subResource.SysMemPitch = desc.Width * 4;
-            subResource.SysMemSlicePitch = 0;
-            g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
-
-            // Create texture view
-            D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-            ZeroMemory(&srvDesc, sizeof(srvDesc));
-            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-            srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Texture2D.MipLevels = desc.MipLevels;
-            srvDesc.Texture2D.MostDetailedMip = 0;
-            g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &texid);
-            pTexture->Release();
+				// UpdateSubresource is more efficient anyway 
+				g_pd3dDeviceContext->UpdateSubresource(pTexture, 0, NULL, data, tex_desc.Width * 4, 0);
+			}
 #elif FEATURE_OpenGL
             this->texid = SOIL_create_OGL_texture(
                 data, width, height, channels,
