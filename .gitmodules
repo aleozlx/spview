@@ -4,3 +4,6 @@
 [submodule "Interops/stb"]
 	path = Interops/stb
 	url = https://github.com/nothings/stb.git
+[submodule "Interops/tinyfiledialogs"]
+	path = Interops/tinyfiledialogs
+	url = https://github.com/native-toolkit/tinyfiledialogs.git
