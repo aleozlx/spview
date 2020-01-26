@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+"fmt"
+"os"
+"path/filepath"
 )
 
 func main() {
@@ -22,3 +22,4 @@ func main() {
 		fmt.Println(file)
 	}
 }
+
