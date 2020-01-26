@@ -72,11 +72,11 @@ namespace spview {
 
         void Load(const unsigned char *data) {
 #if FEATURE_DirectX
-			D3D11_SUBRESOURCE_DATA subResource;
-			subResource.pSysMem = data;
-			subResource.SysMemPitch = tex_desc.Width * 4;
-			subResource.SysMemSlicePitch = 0;
 			if (pTexture == NULL) {
+				D3D11_SUBRESOURCE_DATA subResource;
+				subResource.pSysMem = data;
+				subResource.SysMemPitch = tex_desc.Width * 4;
+				subResource.SysMemSlicePitch = 0;
 				g_pd3dDevice->CreateTexture2D(&tex_desc, &subResource, &pTexture);
 				D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 				ZeroMemory(&srvDesc, sizeof(srvDesc));
