@@ -1,5 +1,6 @@
 #include "superpixel.hpp"
 namespace spt {
+#ifdef FEATURE_OCVSLIC
     ISuperpixel *OpenCVSLIC::Compute(cv::InputArray frame) {
         cv::medianBlur(frame, frame_hsv, 5);
         cv::cvtColor(frame_hsv, frame_hsv, cv::COLOR_BGR2HSV);
@@ -28,8 +29,9 @@ namespace spt {
     unsigned int OpenCVSLIC::GetNumSuperpixels() {
         return segmentation->getNumberOfSuperpixels();
     }
+#endif
 
-#ifdef HAS_LIBGSLIC
+#ifdef FEATURE_GSLICR
 
     GSLIC::GSLIC() :
             in_img(nullptr),
@@ -114,5 +116,6 @@ namespace spt {
             }
         }
     }
-}
 #endif
+
+}

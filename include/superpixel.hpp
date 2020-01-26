@@ -2,10 +2,15 @@
 #define __SUPERPIXEL_PIPELINE_HPP__
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgproc.hpp>
+#if __has_include(<opencv2/ximgproc.hpp>)
+#define FEATURE_OCVSLIC
 #include <opencv2/ximgproc.hpp>
-#ifdef HAS_LIBGSLIC
-#include "gSLICr_Lib/gSLICr.h"
 #endif
+
+#ifdef FEATURE_GSLICR
+#include "gSLICr.h"
+#endif
+
 namespace spt {
     class ISuperpixel {
     public:
@@ -20,6 +25,7 @@ namespace spt {
         virtual ~ISuperpixel() {}
     };
 
+#ifdef FEATURE_OCVSLIC
     class OpenCVSLIC : public ISuperpixel {
     public:
         OpenCVSLIC() {}
@@ -41,8 +47,9 @@ namespace spt {
     protected:
         cv::Mat frame_hsv;
     };
+#endif
 
-#ifdef HAS_LIBGSLIC
+#ifdef FEATURE_GSLICR
     class GSLIC : public ISuperpixel {
     public:
         GSLIC();

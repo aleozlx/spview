@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.8)
 project ("SPVIEW_AppEngine")
 
 set(CMAKE_CXX_STANDARD 17)
-set(OpenGL_GL_PREFERENCE GLVND)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
 option(FEATURE_DirectX "Use DirectX instead of OpenGL")
 
@@ -25,7 +23,7 @@ set(phdrs ${root}/imgui.h)
 set(hdrs ${root}/imstb_rectpack.h ${root}/imstb_textedit.h ${root}/imstb_truetype.h
         ${root}/imgui_internal.h)
 set(srcs ${root}/imgui.cpp
-        ${root}/imgui_demo.cpp ${root}/imgui_draw.cpp ${root}/imgui_widgets.cpp ../AppDemo/appdemo.cpp)
+        ${root}/imgui_demo.cpp ${root}/imgui_draw.cpp ${root}/imgui_widgets.cpp ../AppDemo/app_demo.cpp)
 
 add_library(imgui STATIC ${phdrs} ${hdrs} ${srcs})
 target_include_directories(imgui PUBLIC
@@ -38,7 +36,7 @@ if(FEATURE_DirectX)
     target_include_directories(app_engine PUBLIC ${root}/examples)
     target_link_libraries(app_engine imgui d3d11 dxguid)
 
-#    Just don't do DLLs
+#    Just don't do DLLs - global data gets obnoxious
 #    include(GenerateExportHeader)
 #    generate_export_header(app_engine)
 else()

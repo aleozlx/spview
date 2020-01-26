@@ -4,13 +4,18 @@ set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
 # Feature options
-option(FEATURE_DirectX "Use DirectX instead of OpenGL" OFF)
 option(FEATURE_GUI "Enable GUI" ON)
+option(FEATURE_DirectX "Use DirectX instead of OpenGL" OFF)
+
+if(NOT FEATURE_DirectX)
+set(OpenGL_GL_PREFERENCE GLVND)
+endif()
 
 # Global Config
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
+add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/fixtures/") # suffix / is required
 
 # GUI Packages
 if(FEATURE_GUI)

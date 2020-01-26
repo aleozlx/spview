@@ -54,6 +54,8 @@ namespace spview {
             desc.Height = height;
             desc.MipLevels = 1;
             desc.ArraySize = 1;
+            // TODO add support for `channels`
+            // ref: https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
             desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
             desc.SampleDesc.Count = 1;
             desc.Usage = D3D11_USAGE_DEFAULT;

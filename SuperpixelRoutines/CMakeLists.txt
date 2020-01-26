@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.8)
 project ("sproutine")
-enable_language(CUDA)
 set(CMAKE_CXX_STANDARD 17)
-set(OpenGL_GL_PREFERENCE GLVND)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
+enable_language(CUDA)
+
+if(FEATURE_DirectX)
+    add_definitions(-DFEATURE_DirectX)
+else()
+    add_definitions(-DFEATURE_OpenGL)
+endif()
 
 find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED 10)
@@ -27,13 +31,36 @@ if(CUDA_FOUND)
             gSLICr/gSLICr_Lib/objects/gSLICr_settings.h
             gSLICr/gSLICr_Lib/objects/gSLICr_spixel_info.h
             gSLICr/gSLICr_Lib/gSLICr_defines.h
-            gSLICr/gSLICr_Lib/gSLICr.h
-            )
-    cuda_add_library(gSLICr
+            gSLICr/gSLICr_Lib/gSLICr.h)
+    cuda_add_library(gSLICr STATIC
             ${GSLICR_LIB}
             OPTIONS
             -gencode arch=compute_61,code=compute_61
             -gencode arch=compute_70,code=compute_70
             -gencode arch=compute_75,code=compute_75)
     target_link_libraries(gSLICr ${CUDA_LIBRARY})
+
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/gSLICr/gSLICr_Lib)
+endif()
+
+# gSLIC Demo
+if(FEATURE_GUI)
+    add_executable(gslic_demo
+            ${CMAKE_CURRENT_SOURCE_DIR}/gslic_demo.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/superpixel.cpp)
+    if(CUDA_FOUND)
+        target_link_libraries(gslic_demo gSLICr)
+        target_compile_definitions(gslic_demo PUBLIC -DFEATURE_GSLICR)
+    endif()
+
+    # TODO check whether opencv_ximgproc exists
+    target_link_libraries(gslic_demo
+            app_engine
+            opencv_core
+            opencv_imgproc
+#            opencv_ximgproc
+#            opencv_highgui
+            opencv_imgcodecs
+            opencv_videoio
+            opencv_video)
 endif()
