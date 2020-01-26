@@ -3,6 +3,9 @@ project(spview)
 set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
+# "Go build" support
+include(${CMAKE_SOURCE_DIR}/cmake/GolangSimple.cmake)
+
 # Feature options
 option(FEATURE_GUI "Enable GUI" ON)
 option(FEATURE_DirectX "Use DirectX instead of OpenGL" OFF)
@@ -20,8 +23,9 @@ add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/Fixtures/") # suffix / is re
 
 # GUI Packages
 if(FEATURE_GUI)
-    add_subdirectory(AppEngine)
-    add_subdirectory(SuperpixelRoutines)
-    add_subdirectory(AppDemo)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/AppEngine)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/AppDemo)
 endif()
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/SuperpixelRoutines)
+add_subdirectory(${CMAKE_SOURCE_DIR}/Interops/dirscan)
