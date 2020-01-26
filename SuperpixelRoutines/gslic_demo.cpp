@@ -10,6 +10,11 @@
 #include "teximage.hpp"
 #include "superpixel.hpp"
 
+#if WIN32
+// Disables the console window on Windows
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#endif
+
 using namespace spview;
 using namespace spt;
 
@@ -22,7 +27,7 @@ int main(int, char**) {
     
     cv::Mat frame, frame_tex;
     cv::Mat superpixel_contour;
-    frame = cv::imread(FIXTURES_DIR "test.png");
+	frame = cv::imread(FIXTURES_DIR "test.png");
     cv::Size frame_size = frame.size();
     const int width = frame_size.width, height = frame_size.height, channels=3;
     TexImage imSuperpixels(width, height, channels);
@@ -41,7 +46,6 @@ int main(int, char**) {
     while (app.EventLoop()){
         ImGui::Begin("Superpixel Analyzer");
 #ifdef FEATURE_GSLICR
-        // TODO there seems to be VRAM leak...
         ISuperpixel* superpixel = _superpixel.Compute(frame);
         superpixel->GetContour(superpixel_contour);
         cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
