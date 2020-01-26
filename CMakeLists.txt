@@ -15,7 +15,7 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
-add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/fixtures/") # suffix / is required
+add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/Fixtures/") # suffix / is required
 
 # GUI Packages
 if(FEATURE_GUI)
