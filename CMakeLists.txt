@@ -18,7 +18,9 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
-include_directories(${CMAKE_SOURCE_DIR}/Interops/stb)
+set(INTEROPS_DIR ${CMAKE_SOURCE_DIR}/Interops) # cross platform modules that interops with the system and external libs
+include_directories(${INTEROPS_DIR}/stb)
+include_directories(${INTEROPS_DIR}/imgui-plot)
 add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/Fixtures/") # suffix / is required
 
 # GUI Packages
@@ -27,7 +29,8 @@ if(FEATURE_GUI)
     add_subdirectory(${CMAKE_SOURCE_DIR}/AppDemo)
 endif()
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/Interops/dirscan)
+add_subdirectory(${INTEROPS_DIR}/dirscan)
+add_subdirectory(${INTEROPS_DIR}/imgui-plot)
 add_subdirectory(${CMAKE_SOURCE_DIR}/SuperpixelRoutines)
 add_subdirectory(${CMAKE_SOURCE_DIR}/Utilities)
 add_subdirectory(${CMAKE_SOURCE_DIR}/DNN)

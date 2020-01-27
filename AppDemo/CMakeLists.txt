@@ -11,6 +11,6 @@ if(FEATURE_GUI)
     add_executable(exAppDemo app_demo.cpp)
     target_link_libraries(exAppDemo app_engine)
 
-    add_executable(exMNIST MNIST.cpp)
+    add_executable(exMNIST MNIST.cpp ${INTEROPS_DIR}/imgui-plot/imgui_plot.cpp)
     target_link_libraries(exMNIST app_engine)
 endif()
