@@ -11,6 +11,9 @@ endif()
 
 find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED 10)
+if(CUDA_FOUND)
+    CUDA_SELECT_NVCC_ARCH_FLAGS(ARCH_FLAGS Auto)
+endif()
 
 # gSLIC Library
 if(CUDA_FOUND)
@@ -32,14 +35,9 @@ if(CUDA_FOUND)
             gSLICr/gSLICr_Lib/objects/gSLICr_spixel_info.h
             gSLICr/gSLICr_Lib/gSLICr_defines.h
             gSLICr/gSLICr_Lib/gSLICr.h)
-    cuda_add_library(gSLICr STATIC
-            ${GSLICR_LIB}
-            OPTIONS
-            -gencode arch=compute_61,code=compute_61
-            -gencode arch=compute_70,code=compute_70
-            -gencode arch=compute_75,code=compute_75)
+    cuda_add_library(gSLICr STATIC ${GSLICR_LIB} OPTIONS ${ARCH_FLAGS})
     target_link_libraries(gSLICr ${CUDA_LIBRARY})
-
+    # Export include directory
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/gSLICr/gSLICr_Lib)
 endif()
 
@@ -59,7 +57,6 @@ if(FEATURE_GUI)
             opencv_core
             opencv_imgproc
 #            opencv_ximgproc
-#            opencv_highgui
             opencv_imgcodecs
             opencv_videoio
             opencv_video)
