@@ -7,3 +7,6 @@
 [submodule "Interops/tinyfiledialogs"]
 	path = Interops/tinyfiledialogs
 	url = https://github.com/native-toolkit/tinyfiledialogs.git
+[submodule "DNN/dlib"]
+	path = DNN/dlib
+	url = https://github.com/davisking/dlib.git
