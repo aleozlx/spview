@@ -21,6 +21,7 @@ include_directories(${CMAKE_SOURCE_DIR}/AppEngine/imgui/examples)
 set(INTEROPS_DIR ${CMAKE_SOURCE_DIR}/Interops) # cross platform modules that interops with the system and external libs
 include_directories(${INTEROPS_DIR}/stb)
 include_directories(${INTEROPS_DIR}/imgui-plot)
+include_directories(${INTEROPS_DIR}/tinyfiledialogs)
 add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/Fixtures/") # suffix / is required
 
 # GUI Packages

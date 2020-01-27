@@ -1,11 +1,14 @@
-#include "app.hpp"
-#include "teximage.hpp"
-#include "imgui_plot.h"
-
 #if _MSC_VER
 // Disables the console window on Windows
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#define _CRT_SECURE_NO_WARNINGS // before <cstdlib>
 #endif
+
+#include <cstdlib>
+#include "app.hpp"
+#include "teximage.hpp"
+#include "imgui_plot.h"
+#include "tinyfiledialogs.h"
 
 using namespace spview;
 
@@ -14,6 +17,7 @@ static float x_data[buf_size];
 static float y_data1[buf_size];
 static float y_data2[buf_size];
 static float y_data3[buf_size];
+char dataset_path[512] = "<Dataset Location>";
 
 void generate_data() {
     constexpr float sampling_freq = 44100;
@@ -28,7 +32,6 @@ void generate_data() {
     }
 }
 
-
 int main(int, char **) {
     auto app = AppEngine::App::Initialize();
     if (!app.ok) return 1;
@@ -42,13 +45,36 @@ int main(int, char **) {
     static uint32_t selection_start = 0, selection_length = 0;
     generate_data();
 
+    /////////////////////////////////////////////
+//    char const * lTheSelectFolderName;
+//    lTheSelectFolderName = tinyfd_selectFolderDialog(
+//            "let us just select a directory", NULL);
+//
+//    if (!lTheSelectFolderName)
+//    {
+//        tinyfd_messageBox(
+//                "Error",
+//                "Select folder name is NULL",
+//                "ok",
+//                "error",
+//                1);
+//        return 1;
+//    }
+//
+//    tinyfd_messageBox("The selected folder is",
+//                      lTheSelectFolderName, "ok", "info", 1);
+    ///////////////////////////////////////////////
+
     while (app.EventLoop()) {
         ImGui::Begin("MNIST");
         ImGui::Button("Run");
         ImGui::SameLine();
-        ImGui::Button("Dataset...");
+        if(ImGui::Button("Dataset...")) {
+            const char *pth = tinyfd_selectFolderDialog("Select dataset path", nullptr);
+            if (pth) std::strncpy(dataset_path, pth, sizeof(dataset_path));
+        }
         ImGui::SameLine();
-        ImGui::Text("<Dataset Location>");
+        ImGui::InputText("", dataset_path, sizeof(dataset_path));
 
         ImGui::Dummy(ImVec2(0, 5));
         ImGui::Text("Epoch");
