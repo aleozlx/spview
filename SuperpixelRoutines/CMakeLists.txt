@@ -43,16 +43,14 @@ endif()
 
 # gSLIC Demo
 if(FEATURE_GUI)
-    add_executable(gslic_demo
-            ${CMAKE_CURRENT_SOURCE_DIR}/gslic_demo.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/superpixel.cpp)
+    add_executable(exGSLIC gslic_demo.cpp superpixel.cpp)
     if(CUDA_FOUND)
-        target_link_libraries(gslic_demo gSLICr)
-        target_compile_definitions(gslic_demo PUBLIC -DFEATURE_GSLICR)
+        target_link_libraries(exGSLIC gSLICr)
+        target_compile_definitions(exGSLIC PUBLIC -DFEATURE_GSLICR)
     endif()
 
     # TODO check whether opencv_ximgproc exists
-    target_link_libraries(gslic_demo
+    target_link_libraries(exGSLIC
             app_engine
             opencv_core
             opencv_imgproc

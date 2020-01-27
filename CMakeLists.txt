@@ -27,7 +27,7 @@ if(FEATURE_GUI)
     add_subdirectory(${CMAKE_SOURCE_DIR}/AppDemo)
 endif()
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/SuperpixelRoutines)
 add_subdirectory(${CMAKE_SOURCE_DIR}/Interops/dirscan)
-
+add_subdirectory(${CMAKE_SOURCE_DIR}/SuperpixelRoutines)
+add_subdirectory(${CMAKE_SOURCE_DIR}/Utilities)
 add_subdirectory(${CMAKE_SOURCE_DIR}/DNN)
