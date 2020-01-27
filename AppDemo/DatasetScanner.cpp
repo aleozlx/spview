@@ -1,6 +1,6 @@
 #include "app.hpp"
 
-#if WIN32
+#if _MSC_VER
 // Disables the console window on Windows
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif

@@ -6,6 +6,11 @@ using namespace spview;
 const unsigned int WIDTH = 432;
 const unsigned int HEIGHT = 240;
 
+#if _MSC_VER
+// Disables the console window on Windows
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#endif
+
 int main(int, char**) {
     auto app = AppEngine::App::Initialize();
     if (!app.ok) return 1;
@@ -16,7 +21,7 @@ int main(int, char**) {
 #ifdef FIXTURES_DIR
     int image_width = 0;
     int image_height = 0;
-    unsigned char* image_data = stbi_load(FIXTURES_DIR "test.png", &image_width, &image_height, NULL, 4);
+    unsigned char* image_data = stbi_load(FIXTURES_DIR "test.png", &image_width, &image_height, nullptr, 4);
     TexImage im(image_width, image_height, 3);
     im.Load(image_data);
 #endif
@@ -26,7 +31,7 @@ int main(int, char**) {
 #ifdef FIXTURES_DIR
         ImGui::Text("pointer = %p", im.id());
         ImGui::Text("size = %d x %d", im.width, im.height);
-        ImGui::Image(im.id(), ImVec2(im.width, im.height));
+        ImGui::Image(im.id(), ImVec2(static_cast<float>(im.width), static_cast<float>(im.height)));
 #else
         ImGui::Text("Missing FIXTURES_DIR");
 #endif
