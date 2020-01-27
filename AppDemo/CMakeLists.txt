@@ -10,4 +10,8 @@ if(FEATURE_GUI)
 
     add_executable(app_demo ${CMAKE_CURRENT_SOURCE_DIR}/app_demo.cpp)
     target_link_libraries(app_demo app_engine)
+
+    add_executable(DatasetScanner ${CMAKE_CURRENT_SOURCE_DIR}/DatasetScanner.cpp)
+    target_link_libraries(DatasetScanner app_engine)
+    add_dependencies(DatasetScanner dirscan)
 endif()
