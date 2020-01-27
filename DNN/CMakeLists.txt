@@ -1,12 +1,14 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.8)
 project(example-app)
 #list(APPEND CMAKE_MODULE_PATH $ENV{LIBTORCH_DIR}/share/cmake/Torch)
-find_package(Torch REQUIRED)
+find_package(Torch)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-add_executable(example-torch ttorch.cpp)
-target_link_libraries(example-torch "${TORCH_LIBRARIES}")
-set_property(TARGET example-torch PROPERTY CXX_STANDARD 14)
+if(TORCH_FOUND)
+    add_executable(example-torch ttorch.cpp)
+    target_link_libraries(example-torch "${TORCH_LIBRARIES}")
+    set_property(TARGET example-torch PROPERTY CXX_STANDARD 14)
+endif()
 
 # The following code block is suggested to be used on Windows.
 # According to https://github.com/pytorch/pytorch/issues/25457,
