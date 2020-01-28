@@ -103,35 +103,36 @@ public:
 
 protected:
     void TrainLoop() {
+        auto steps_per_epoch = GetStepsPerEpoch();
         std::vector<matrix<unsigned char>> mini_batch_samples;
         std::vector<unsigned long> mini_batch_labels;
         dlib::rand rnd(time(0));
         while (trainer.get_learning_rate() >= 1e-6 && !stop_training) {
+            auto step = trainer.get_train_one_step_calls(); // 0-based step index
+
             mini_batch_samples.clear();
             mini_batch_labels.clear();
-
-            // make a 128 image mini-batch
             while (mini_batch_samples.size() < 128) {
                 auto idx = rnd.get_random_32bit_number() % training_images.size();
                 mini_batch_samples.push_back(training_images[idx]);
                 mini_batch_labels.push_back(training_labels[idx]);
             }
-
-            // Tell the trainer to update the network given this mini-batch
             trainer.train_one_step(mini_batch_samples, mini_batch_labels);
 
-            // You can also feed validation data into the trainer by periodically
-            // calling trainer.test_one_step(samples,labels).  Unlike train_one_step(),
-            // test_one_step() doesn't modify the network, it only computes the testing
-            // error which it records internally.  This testing error will then be print
-            // in the verbose logging and will also determine when the trainer's
-            // automatic learning rate shrinking happens.  Therefore, test_one_step()
-            // can be used to perform automatic early stopping based on held out data.
-
-            auto step = trainer.get_train_one_step_calls() - 1;
+            if (step % steps_per_epoch == 0) {
+                mini_batch_samples.clear();
+                mini_batch_labels.clear();
+                while (mini_batch_samples.size() < 128) {
+                    auto idx = rnd.get_random_32bit_number() % testing_images.size();
+                    mini_batch_samples.push_back(testing_images[idx]);
+                    mini_batch_labels.push_back(testing_labels[idx]);
+                }
+                trainer.test_one_step(mini_batch_samples, mini_batch_labels);
+                auto iTest = trainer.get_test_one_step_calls() - 1;
+            }
             x_data[step] = static_cast<float>(step);
             y_data1[step] = static_cast<float>(trainer.get_average_loss());
-            y_data2[step] = 0;
+            y_data2[step] = static_cast<float>(trainer.get_average_test_loss()); // TODO Space optimization wanted
             buf_size += 1;
         }
         trainer.get_net();
@@ -151,10 +152,6 @@ int main(int argc, char *argv[]) {
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     MNISTModel model;
-
-    static const float *y_data[] = {y_data1, y_data2};
-    static ImU32 colors[3] = {ImColor(0, 255, 0), ImColor(255, 0, 0), ImColor(0, 0, 255)};
-    static uint32_t selection_start = 0, selection_length = 0;
 
     /////////////////////////////////////////////
 //    char const * lTheSelectFolderName;
@@ -178,6 +175,21 @@ int main(int argc, char *argv[]) {
     const char *btnStartStop;
     auto t0_train_progress = std::chrono::high_resolution_clock::now();
     auto train_progress = model.GetProgress();
+
+    const float *y_data[] = {y_data1, y_data2};
+    ImU32 colors[3] = {ImColor(255, 255, 255), ImColor(200, 150, 0)};
+    ImGui::PlotConfig conf;
+    conf.values.xs = x_data;
+    conf.values.ys_list = y_data;
+    conf.values.ys_count = 2;
+    conf.values.colors = colors;
+    conf.scale.min = -0.1;
+    conf.scale.max = 1.5;
+    conf.grid_y.show = true;
+    conf.grid_y.size = 0.5f;
+    conf.grid_y.subticks = 5;
+    conf.frame_size = ImVec2(500, 200);
+
     while (app.EventLoop()) {
         ImGui::Begin("MNIST");
         btnStartStop = model.IsRunning() ? "Stop" : "Run";
@@ -216,31 +228,8 @@ int main(int argc, char *argv[]) {
             ImGui::ProgressBar(static_cast<float>(train_progress.second)/steps_per_epoch);
         }
 
-
-        ImGui::PlotConfig conf;
-        conf.values.xs = x_data;
         conf.values.count = buf_size;
-        conf.values.ys_list = y_data;
-        conf.values.ys_count = 2;
-        conf.values.colors = colors;
-        conf.scale.min = -0.1;
-        conf.scale.max = 1.5;
-        conf.grid_y.show = true;
-        conf.grid_y.size = 0.5f;
-        conf.grid_y.subticks = 5;
-        conf.frame_size = ImVec2(500, 200);
         ImGui::Plot("Loss", conf);
-
-//        // Draw second plot with the selection
-//        // reset previous values
-//        conf.values.ys_list = nullptr;
-//        conf.selection.show = false;
-//        // set new ones
-//        conf.values.ys = y_data3;
-//        conf.values.offset = selection_start;
-//        conf.values.count = selection_length;
-//        conf.line_thickness = 2.f;
-//        ImGui::Plot("plot2", conf);
         ImGui::End();
         app.Render(clear_color);
     }
