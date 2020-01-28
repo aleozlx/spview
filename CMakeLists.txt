@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
+cmake_policy(SET CMP0054 NEW)
 project(spview)
 set(CMAKE_CXX_STANDARD 17)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
@@ -11,7 +12,7 @@ option(FEATURE_GUI "Enable GUI" ON)
 option(FEATURE_DirectX "Use DirectX instead of OpenGL" OFF)
 
 if(NOT FEATURE_DirectX)
-set(OpenGL_GL_PREFERENCE GLVND)
+    set(OpenGL_GL_PREFERENCE GLVND)
 endif()
 
 # Global Config
@@ -24,12 +25,12 @@ include_directories(${INTEROPS_DIR}/imgui-plot)
 include_directories(${INTEROPS_DIR}/tinyfiledialogs)
 add_definitions(-DFIXTURES_DIR="${CMAKE_SOURCE_DIR}/Fixtures/") # suffix / is required
 
-# GUI Packages
 if(FEATURE_GUI)
     add_subdirectory(${CMAKE_SOURCE_DIR}/AppEngine)
     add_subdirectory(${CMAKE_SOURCE_DIR}/AppDemo)
 endif()
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/DNN/dlib dlib_build)
 add_subdirectory(${INTEROPS_DIR}/dirscan)
 add_subdirectory(${INTEROPS_DIR}/imgui-plot)
 add_subdirectory(${CMAKE_SOURCE_DIR}/SuperpixelRoutines)

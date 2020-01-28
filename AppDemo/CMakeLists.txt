@@ -14,5 +14,5 @@ if(FEATURE_GUI)
     add_executable(exMNIST MNIST.cpp
             ${INTEROPS_DIR}/imgui-plot/imgui_plot.cpp
             ${INTEROPS_DIR}/tinyfiledialogs/tinyfiledialogs.c)
-    target_link_libraries(exMNIST app_engine)
+    target_link_libraries(exMNIST app_engine dlib::dlib)
 endif()
