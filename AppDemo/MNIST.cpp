@@ -31,7 +31,7 @@ protected:
     enum ModelState {
         Uninitialized, Ready, Started, Stopped, Completed
     };
-    std::atomic<ModelState> state {Uninitialized};
+    std::atomic<ModelState> state{Uninitialized};
     unsigned long num_epoch;
     unsigned long steps_per_epoch;
 public:
@@ -48,7 +48,7 @@ public:
     net_type net;
     dnn_trainer<net_type> trainer;
 
-    MNISTModel(): trainer(net) {
+    MNISTModel() : trainer(net) {
         trainer.set_learning_rate(0.01);
         trainer.set_min_learning_rate(0.00001);
         trainer.set_iterations_without_progress_threshold(500);
@@ -56,13 +56,14 @@ public:
         trainer.be_quiet();
     }
 
-    void Initialize(const char *pthDataset) {
+    bool Initialize(const char *pthDataset) {
         if (state == Uninitialized) {
             load_mnist_dataset(pthDataset, training_images, training_labels, testing_images, testing_labels);
             num_epoch = training_images.size();
             steps_per_epoch = num_epoch / trainer.get_mini_batch_size();
             state = Ready;
-        }
+            return true;
+        } else return false;
     }
 
     void Start() {
@@ -82,8 +83,7 @@ public:
     std::pair<unsigned long, unsigned long> GetProgress() {
         if (state == Uninitialized) {
             return std::make_pair(0, 0);
-        }
-        else {
+        } else {
             unsigned long total_steps = trainer.get_train_one_step_calls();
             return std::make_pair(total_steps / steps_per_epoch, total_steps % steps_per_epoch);
         }
@@ -153,25 +153,6 @@ int main(int argc, char *argv[]) {
 
     MNISTModel model;
 
-    /////////////////////////////////////////////
-//    char const * lTheSelectFolderName;
-//    lTheSelectFolderName = tinyfd_selectFolderDialog(
-//            "let us just select a directory", NULL);
-//
-//    if (!lTheSelectFolderName)
-//    {
-//        tinyfd_messageBox(
-//                "Error",
-//                "Select folder name is NULL",
-//                "ok",
-//                "error",
-//                1);
-//        return 1;
-//    }
-//
-//    tinyfd_messageBox("The selected folder is",
-//                      lTheSelectFolderName, "ok", "info", 1);
-    ///////////////////////////////////////////////
     const char *btnStartStop;
     auto t0_train_progress = std::chrono::high_resolution_clock::now();
     auto train_progress = model.GetProgress();
@@ -196,10 +177,14 @@ int main(int argc, char *argv[]) {
         if (ImGui::Button(btnStartStop)) {
             if (model.IsRunning()) {
                 model.Stop();
-            }
-            else {
-                model.Initialize(dataset_path);
-                model.Start();
+            } else {
+                if (model.Initialize(dataset_path))
+                    model.Start();
+                else
+                    tinyfd_messageBox(
+                            "MNIST",
+                            "Restart the program to train the model again.",
+                            "Ok", "info", 1);
             }
         }
         ImGui::SameLine();
@@ -214,7 +199,7 @@ int main(int argc, char *argv[]) {
         auto steps_per_epoch = model.GetStepsPerEpoch();
         if (steps_per_epoch > 0) {
             auto t1 = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<float, std::milli> elapsed = t1-t0_train_progress;
+            std::chrono::duration<float, std::milli> elapsed = t1 - t0_train_progress;
             if (elapsed.count() > 10.f) {
                 train_progress = model.GetProgress();
                 t0_train_progress = t1;
@@ -222,10 +207,10 @@ int main(int argc, char *argv[]) {
 
             ImGui::Text("Epoch");
             ImGui::SameLine(70);
-            ImGui::ProgressBar(std::min(static_cast<float>(train_progress.first)/20, 1.f));
+            ImGui::ProgressBar(std::min(static_cast<float>(train_progress.first) / 20, 1.f));
             ImGui::Text("Step");
             ImGui::SameLine(70);
-            ImGui::ProgressBar(static_cast<float>(train_progress.second)/steps_per_epoch);
+            ImGui::ProgressBar(static_cast<float>(train_progress.second) / steps_per_epoch);
         }
 
         conf.values.count = buf_size;
