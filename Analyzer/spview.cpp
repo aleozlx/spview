@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -10,18 +11,27 @@
 #include "teximage.hpp"
 #include "superpixel.hpp"
 
+#include "spview.h"
+
 #if _MSC_VER
 // Disables the console window on Windows
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
 
 using namespace spt::AppEngine;
+static std::list<std::unique_ptr<IWindow>> windows;
 
 int main(int, char**) {
     auto app = App::Initialize();
     if (!app.ok) return 1;
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    { // Feed Window
+        auto w = std::make_unique<WindowFeed>();
+        if (w->Show() != nullptr)
+            windows.push_back(std::move(w));
+    }
 
     cv::Mat frame, frame_tex;
     cv::Mat superpixel_contour;
@@ -52,8 +62,15 @@ int main(int, char**) {
         cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
         imSuperpixels.Load(frame_tex.data);
         ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
+        ImGui::Text("windows: %llu", windows.size());
         ImGui::End();
+
+        for (auto w = windows.begin(); w != windows.end();) {
+            if (!(*w)->Draw()) windows.erase(w++);
+            else ++w;
+        }
         App::Render(clear_color);
     }
+    windows.clear();
     return 0;
 }

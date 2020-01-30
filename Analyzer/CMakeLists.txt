@@ -16,7 +16,7 @@ if(CUDA_FOUND)
 endif()
 
 if(FEATURE_GUI)
-    add_executable(SuperpixelAnalyzer spview.cpp)
+    add_executable(SuperpixelAnalyzer spview.cpp WindowFeed.cpp WindowFeed.h)
     target_link_libraries(SuperpixelAnalyzer
             app_engine
             sproutine)
