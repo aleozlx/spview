@@ -116,6 +116,21 @@ namespace spt::AppEngine {
         bool Copy(const char *src, size_t len, bool complete);
 		void DecrBypass(const char *src);
     };
+
+    class FlatlandObject {
+    protected:
+        char type, separator;
+        std::list<std::string> values;
+        void PushValues(const char *src, size_t buffer_size);
+    private:
+        FlatlandObject();
+    public:
+        FlatlandObject(char type, char sep);
+		FlatlandObject(char type, char sep, const char *src, size_t buffer_size);
+        virtual ~FlatlandObject() = default;
+        static FlatlandObject Parse(const char *src, size_t buffer_size);
+        static size_t ValidBufferSize(const char *src, size_t buffer_size);
+    };
 }
 
 class IWindow {

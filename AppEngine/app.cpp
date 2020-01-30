@@ -1,8 +1,12 @@
-#include "..\include\app.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <string>
+#include <algorithm>
+
+#define NOMINMAX
+
 #include "app.hpp"
 
 #if FEATURE_DirectX
@@ -446,6 +450,7 @@ namespace spt::AppEngine {
         return fwrite(buffer, 1, size, fp);
     }
 #else
+
     Pipe::Pipe() {
         hChildStd_IN_Rd = NULL;
         hChildStd_IN_Wr = NULL;
@@ -612,41 +617,43 @@ namespace spt::AppEngine {
         BOOL bSuccess = WriteFile(hChildStd_IN_Wr, buffer, size, &dwWritten, NULL);
         return bSuccess ? dwWritten : 0;
     }
+
 #endif
 
-// #define FEATURE_LINEBUFFER_AUTOBYPASS
-    LineBuffer::LineBuffer(size_t buffer_size): buffer_size(buffer_size) {
-        buffer = new char[buffer_size+1]; // one extra byte for \0
+#define FEATURE_LINEBUFFER_AUTOBYPASS
+
+    LineBuffer::LineBuffer(size_t buffer_size) : buffer_size(buffer_size) {
+        buffer = new char[buffer_size + 1]; // one extra byte for \0
         capacity = buffer_size;
         cursor_buf = buffer;
     }
 
-	LineBuffer::~LineBuffer() {
+    LineBuffer::~LineBuffer() {
 #ifdef FEATURE_LINEBUFFER_AUTOBYPASS
-		if (bypass != 0)
+        if (bypass != 0)
 #endif
-			delete[] buffer;
-	}
+            delete[] buffer;
+    }
 
     bool LineBuffer::GetLine(const char *src, size_t max_count) {
         const char *newline;
 #ifdef FEATURE_LINEBUFFER_AUTOBYPASS
-		if (bypass == 0) {
-			buffer = const_cast<char*>(src); // input buffer could be reallocated
-			return max_count > 0;
-		}
+        if (bypass == 0) {
+            buffer = const_cast<char *>(src); // input buffer could be reallocated
+            return max_count > 0;
+        }
 #endif
         if (cursor_src && cursor_src > src) { // continuation
             max_count -= cursor_src - src;
             src = cursor_src;
 #ifdef FEATURE_LINEBUFFER_AUTOBYPASS
-			bypass = -1; // permanently disable bypass
+            bypass = -1; // permanently disable bypass
 #endif
         }
-        while ((newline=static_cast<const char*>(std::memchr(src, '\n', max_count)))) {
+        while ((newline = static_cast<const char *>(std::memchr(src, '\n', max_count)))) {
 #ifdef FEATURE_LINEBUFFER_AUTOBYPASS
-			if (newline == src + max_count - 1) // input was a whole line
-				DecrBypass(src);
+            if (newline == src + max_count - 1) // input was a whole line
+                DecrBypass(src);
 #endif
             size_t len = newline - src + 1;
             if (discard_line) {
@@ -658,8 +665,8 @@ namespace spt::AppEngine {
                 return true;
             }
             discard:
-                max_count -= len;
-                src += len;
+            max_count -= len;
+            src += len;
         }
         if (max_count != 0) { // save incomplete line
             if (!Copy(src, max_count, false)) { // discard entire over-length incomplete line
@@ -673,32 +680,70 @@ namespace spt::AppEngine {
     bool LineBuffer::Copy(const char *src, size_t len, bool complete) {
         if (len <= capacity) {
             std::memcpy(cursor_buf, src, len);
-			cursor_buf[len] = '\0';
+            cursor_buf[len] = '\0';
             if (complete) { // release buffer for the next write
                 capacity = buffer_size;
                 cursor_buf = buffer;
-            }
-            else {
+            } else {
                 cursor_buf += len;
                 capacity -= len;
             }
             return true;
-        }
-        else { // reject entire line
+        } else { // reject entire line
             capacity = buffer_size;
             cursor_buf = buffer;
             return false;
         }
     }
 
-	void LineBuffer::DecrBypass(const char *src) {
+    void LineBuffer::DecrBypass(const char *src) {
 #ifdef FEATURE_LINEBUFFER_AUTOBYPASS
-		if (bypass > 0)
-			--bypass;
-		if (bypass == 0) {
-			delete[] buffer;
-			buffer = const_cast<char*>(src);
-		}
+        if (bypass > 0)
+            --bypass;
+        if (bypass == 0) {
+            delete[] buffer;
+            buffer = const_cast<char *>(src);
+        }
 #endif
-	}
+    }
+
+    FlatlandObject::FlatlandObject() : FlatlandObject('?', '\x20') {
+
+    }
+
+    FlatlandObject::FlatlandObject(char type, char sep) : type(type), separator(sep) {
+
+    }
+
+    FlatlandObject::FlatlandObject(char type, char sep, const char *src, size_t buffer_size) : FlatlandObject(type,
+                                                                                                              sep) {
+        buffer_size = ValidBufferSize(src, buffer_size);
+        this->PushValues(src + 2, buffer_size - 2);
+    }
+
+    void FlatlandObject::PushValues(const char *src, size_t buffer_size) {
+        const char *p;
+        while ((p = static_cast<const char *>(std::memchr(src, this->separator, buffer_size)))) {
+            size_t len = p - src;
+            this->values.emplace_back(src, len);
+            src = p + 1;
+            buffer_size -= len + 1;
+        }
+        if (buffer_size > 0)
+            this->values.emplace_back(src, buffer_size);
+    }
+
+    FlatlandObject FlatlandObject::Parse(const char *src, size_t buffer_size) {
+        buffer_size = ValidBufferSize(src, buffer_size);
+        if (buffer_size == 0)
+            return FlatlandObject();
+        FlatlandObject obj(src[0], src[1]);
+        obj.PushValues(src + 2, buffer_size - 2);
+        return obj;
+    }
+
+    size_t FlatlandObject::ValidBufferSize(const char *src, size_t buffer_size) {
+        const char *p = static_cast<const char *>(std::memchr(src, '\n', buffer_size));
+        return p ? p - src : buffer_size;
+    }
 }
