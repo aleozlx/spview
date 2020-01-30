@@ -21,8 +21,6 @@ if(CUDA_FOUND)
         set(CFLAGS_WARN "-Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing")
         set(CMAKE_CXX_FLAGS "-fPIC -O3 -march=native ${CFLAGS_WARN} ${CMAKE_CXX_FLAGS}")
     endif()
-    include_directories(${CUDA_INCLUDE_DIRS})
-    include_directories(${OpenCV_INCLUDE_DIRS})
     set(GSLICR_LIB
             gSLICr/gSLICr_Lib/engines/gSLICr_core_engine.h
             gSLICr/gSLICr_Lib/engines/gSLICr_seg_engine.h
@@ -36,9 +34,10 @@ if(CUDA_FOUND)
             gSLICr/gSLICr_Lib/gSLICr_defines.h
             gSLICr/gSLICr_Lib/gSLICr.h)
     cuda_add_library(gSLICr STATIC ${GSLICR_LIB} OPTIONS ${ARCH_FLAGS})
+    target_include_directories(gSLICr PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gSLICr/gSLICr_Lib)
+    target_include_directories(gSLICr PUBLIC ${CUDA_INCLUDE_DIRS})
+    target_include_directories(gSLICr PRIVATE ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(gSLICr ${CUDA_LIBRARY})
-    # Export include directory
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/gSLICr/gSLICr_Lib)
 endif()
 
 # gSLIC Demo
@@ -59,3 +58,15 @@ if(FEATURE_GUI)
             opencv_videoio
             opencv_video)
 endif()
+
+add_library(sproutine STATIC superpixel.cpp)
+if(CUDA_FOUND)
+    target_link_libraries(sproutine gSLICr)
+    target_compile_definitions(sproutine PUBLIC -DFEATURE_GSLICR)
+endif()
+target_link_libraries(sproutine
+        opencv_core
+        opencv_imgproc
+        opencv_imgcodecs
+        opencv_videoio
+        opencv_video)
