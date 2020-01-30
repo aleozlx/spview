@@ -614,23 +614,40 @@ namespace spt::AppEngine {
     }
 #endif
 
+// #define FEATURE_LINEBUFFER_AUTOBYPASS
     LineBuffer::LineBuffer(size_t buffer_size): buffer_size(buffer_size) {
         buffer = new char[buffer_size+1]; // one extra byte for \0
         capacity = buffer_size;
         cursor_buf = buffer;
     }
 
-    LineBuffer::~LineBuffer() {
-        delete[] buffer;
-    }
+	LineBuffer::~LineBuffer() {
+#ifdef FEATURE_LINEBUFFER_AUTOBYPASS
+		if (bypass != 0)
+#endif
+			delete[] buffer;
+	}
 
     bool LineBuffer::GetLine(const char *src, size_t max_count) {
         const char *newline;
+#ifdef FEATURE_LINEBUFFER_AUTOBYPASS
+		if (bypass == 0) {
+			buffer = const_cast<char*>(src); // input buffer could be reallocated
+			return max_count > 0;
+		}
+#endif
         if (cursor_src && cursor_src > src) { // continuation
             max_count -= cursor_src - src;
             src = cursor_src;
+#ifdef FEATURE_LINEBUFFER_AUTOBYPASS
+			bypass = -1; // permanently disable bypass
+#endif
         }
         while ((newline=static_cast<const char*>(std::memchr(src, '\n', max_count)))) {
+#ifdef FEATURE_LINEBUFFER_AUTOBYPASS
+			if (newline == src + max_count - 1) // input was a whole line
+				DecrBypass(src);
+#endif
             size_t len = newline - src + 1;
             if (discard_line) {
                 discard_line = false;
@@ -673,4 +690,15 @@ namespace spt::AppEngine {
             return false;
         }
     }
+
+	void LineBuffer::DecrBypass(const char *src) {
+#ifdef FEATURE_LINEBUFFER_AUTOBYPASS
+		if (bypass > 0)
+			--bypass;
+		if (bypass == 0) {
+			delete[] buffer;
+			buffer = const_cast<char*>(src);
+		}
+#endif
+	}
 }

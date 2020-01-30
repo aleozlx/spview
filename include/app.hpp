@@ -108,10 +108,13 @@ namespace spt::AppEngine {
         char *cursor_buf = nullptr; // valid write location
         size_t capacity; // available buffer size
         bool discard_line = false;
+		char bypass = 32; // consecutive whole line inputs cause bypass
+		//   bypass: -1 disable  0 enable  >0 observing
         LineBuffer(size_t buffer_size = 512);
         ~LineBuffer();
         bool GetLine(const char *src, size_t max_count);
         bool Copy(const char *src, size_t len, bool complete);
+		void DecrBypass(const char *src);
     };
 }
 
