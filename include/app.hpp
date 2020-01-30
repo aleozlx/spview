@@ -100,6 +100,19 @@ namespace spt::AppEngine {
 
         size_t Write(char *buffer, size_t size);
     };
+
+    struct LineBuffer {
+        char *buffer = nullptr;
+        const size_t buffer_size; // total buffer size
+        const char *cursor_src = nullptr; // valid read location
+        char *cursor_buf = nullptr; // valid write location
+        size_t capacity; // available buffer size
+        bool discard_line = false;
+        LineBuffer(size_t buffer_size = 512);
+        ~LineBuffer();
+        bool GetLine(const char *src, size_t max_count);
+        bool Copy(const char *src, size_t len, bool complete);
+    };
 }
 
 class IWindow {

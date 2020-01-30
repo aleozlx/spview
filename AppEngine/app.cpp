@@ -614,4 +614,63 @@ namespace spt::AppEngine {
     }
 #endif
 
+    LineBuffer::LineBuffer(size_t buffer_size): buffer_size(buffer_size) {
+        buffer = new char[buffer_size+1]; // one extra byte for \0
+        capacity = buffer_size;
+        cursor_buf = buffer;
+    }
+
+    LineBuffer::~LineBuffer() {
+        delete[] buffer;
+    }
+
+    bool LineBuffer::GetLine(const char *src, size_t max_count) {
+        const char *newline;
+        if (cursor_src && cursor_src > src) { // continuation
+            max_count -= cursor_src - src;
+            src = cursor_src;
+        }
+        while ((newline=static_cast<const char*>(std::memchr(src, '\n', max_count)))) {
+            size_t len = newline - src + 1;
+            if (discard_line) {
+                discard_line = false;
+                goto discard;
+            }
+            if (Copy(src, len, true)) {
+                cursor_src = newline + 1;
+                return true;
+            }
+            discard:
+                max_count -= len;
+                src += len;
+        }
+        if (max_count != 0) { // save incomplete line
+            if (!Copy(src, max_count, false)) { // discard entire over-length incomplete line
+                discard_line = true;
+            }
+        }
+        cursor_src = nullptr;
+        return false;
+    }
+
+    bool LineBuffer::Copy(const char *src, size_t len, bool complete) {
+        if (len <= capacity) {
+            std::memcpy(cursor_buf, src, len);
+			cursor_buf[len] = '\0';
+            if (complete) { // release buffer for the next write
+                capacity = buffer_size;
+                cursor_buf = buffer;
+            }
+            else {
+                cursor_buf += len;
+                capacity -= len;
+            }
+            return true;
+        }
+        else { // reject entire line
+            capacity = buffer_size;
+            cursor_buf = buffer;
+            return false;
+        }
+    }
 }

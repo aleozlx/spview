@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
     (void) io;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+    AppEngine::LineBuffer dirscan_line;
     static unsigned long szOutput = 0;
     while (app.EventLoop()) {
         ImGui::Begin("Dataset Scanner");
@@ -38,7 +39,10 @@ int main(int argc, char *argv[]) {
             size_t r = 0;
             do {
                 r = scanner.Read(pipe_buffer, sizeof(pipe_buffer));
-                szOutput += r;
+                while (dirscan_line.GetLine(pipe_buffer, r)) {
+					szOutput += 1;
+                }
+                //szOutput += r;
             } while (r != 0);
             scanner.Close();
         }
