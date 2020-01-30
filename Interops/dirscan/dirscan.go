@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func incr (m *map[string]int, k string) {
+func incr(m *map[string]int, k string) {
 	if val, ok := (*m)[k]; ok {
 		(*m)[k] = val + 1
 	} else {
@@ -25,10 +25,20 @@ func exists(path string) bool {
 	return err == nil
 }
 
+var extensions = map[string]struct{}{
+	".jpg": {}, ".jpeg": {}, ".png": {},
+}
+
+func supportExt(ext string) bool {
+	_, ok := extensions[ext]
+	return ok
+}
+
 func main() {
+
 	var frames []Frame
 	var (
-		classes = make(map[string]int)
+		classes    = make(map[string]int)
 		partitions = make(map[string]int)
 	)
 	var classPartitions = make(map[string]map[string]struct{})
@@ -47,7 +57,7 @@ func main() {
 		func(path string, info os.FileInfo, err error) error {
 			ctPath += 1
 			dname, fname := filepath.Split(path)
-			if filepath.Ext(fname) == ".jpg" {
+			if supportExt(filepath.Ext(fname)) {
 				ctImage += 1
 				cname := filepath.Base(dname)
 				incr(&classes, cname)
@@ -62,7 +72,7 @@ func main() {
 					entry[pname] = struct{}{}
 					classPartitions[cname] = entry
 				}
-				frames = append(frames, Frame{ filepath.Base(fname), cname, pname })
+				frames = append(frames, Frame{filepath.Base(fname), cname, pname})
 			} else if !info.IsDir() {
 				ctUnknown += 1
 			}
@@ -75,7 +85,7 @@ func main() {
 	fmt.Printf("h classes=%d parts=%d images=%d unknown=%d\n", len(classes), len(partitions), ctImage, ctUnknown)
 	for cname := range classes {
 		fmt.Printf("c+%d+%s\n", classes[cname], cname)
-		for pname, _ := range classPartitions[cname] {
+		for pname := range classPartitions[cname] {
 			fmt.Printf("p+%d+%s+%s\n", partitions[pname], pname, cname)
 		}
 	}
