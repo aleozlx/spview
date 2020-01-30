@@ -162,7 +162,7 @@ namespace spt::AppEngine {
 
 #if FEATURE_DirectX
 
-    App App::Initialize() {
+    AppInitResult App::Initialize() {
         // Create application window
         wc = {sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
               _T("ImGui Example"), NULL};
@@ -174,7 +174,7 @@ namespace spt::AppEngine {
         if (!CreateDeviceD3D(hwnd)) {
             CleanupDeviceD3D();
             ::UnregisterClass(wc.lpszClassName, wc.hInstance);
-            return App::Err();
+            return AppInitResult::Err();
         }
 
         // Show the window
@@ -192,13 +192,13 @@ namespace spt::AppEngine {
         ImGui_ImplWin32_Init(hwnd);
         ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
-        return App::Ok();
+        return AppInitResult::Ok();
     }
 
 #endif
 
 #if FEATURE_OpenGL
-    App App::Initialize() {
+    AppInitResult App::Initialize() {
         glfwSetErrorCallback(glfw_error_callback);
         if (!glfwInit()) return App::Err();
 
@@ -218,7 +218,7 @@ namespace spt::AppEngine {
         bool err = glewInit() != GLEW_OK;
         if (err) {
             std::cerr << "Failed to initialize OpenGL loader!" << std::endl;
-            return App::Err();
+            return AppInitResult::Err();
         }
 
         // Setup Dear ImGui context
@@ -233,7 +233,7 @@ namespace spt::AppEngine {
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
-        return App::Ok(glsl_version);
+        return AppInitResult::Ok(glsl_version);
     }
 
 #endif

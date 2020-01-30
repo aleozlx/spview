@@ -41,7 +41,7 @@ int main(int, char**) {
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
     GSLIC _superpixel(gslic_settings);
 #endif
-    while (app.EventLoop()){
+    while (AppEngine::App::EventLoop()){
         ImGui::Begin("Superpixel Analyzer");
 #ifdef FEATURE_GSLICR
         ISuperpixel* superpixel = _superpixel.Compute(frame);
@@ -53,7 +53,7 @@ int main(int, char**) {
         imSuperpixels.Load(frame_tex.data);
         ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
         ImGui::End();
-        app.Render(clear_color);
+        AppEngine::App::Render(clear_color);
     }
     return 0;
 }

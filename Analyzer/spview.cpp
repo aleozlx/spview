@@ -15,10 +15,10 @@
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
 
-using namespace spt;
+using namespace spt::AppEngine;
 
 int main(int, char**) {
-    auto app = AppEngine::App::Initialize();
+    auto app = App::Initialize();
     if (!app.ok) return 1;
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -28,7 +28,7 @@ int main(int, char**) {
     frame = cv::imread(FIXTURES_DIR "test.png");
     cv::Size frame_size = frame.size();
     const int width = frame_size.width, height = frame_size.height, channels=3;
-    TexImage imSuperpixels(width, height, channels);
+    spt::TexImage imSuperpixels(width, height, channels);
 #ifdef FEATURE_GSLICR
     gSLICr::objects::settings gslic_settings;
     gslic_settings.img_size = { width, height };
@@ -39,12 +39,12 @@ int main(int, char**) {
     gslic_settings.do_enforce_connectivity = true;
     gslic_settings.color_space = gSLICr::XYZ; // gSLICr::CIELAB | gSLICr::RGB
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
-    GSLIC _superpixel(gslic_settings);
+    spt::GSLIC _superpixel(gslic_settings);
 #endif
-    while (app.EventLoop()){
+    while (App::EventLoop()){
         ImGui::Begin("Superpixel Analyzer");
 #ifdef FEATURE_GSLICR
-        ISuperpixel* superpixel = _superpixel.Compute(frame);
+        spt::ISuperpixel* superpixel = _superpixel.Compute(frame);
         superpixel->GetContour(superpixel_contour);
         cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
         frame_tex.setTo(cv::Scalar(200, 5, 240), superpixel_contour);
@@ -53,7 +53,7 @@ int main(int, char**) {
         imSuperpixels.Load(frame_tex.data);
         ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
         ImGui::End();
-        app.Render(clear_color);
+        App::Render(clear_color);
     }
     return 0;
 }

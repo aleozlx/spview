@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
     std::unordered_map<std::string, std::list<Partition *>> classPartitions;
     std::vector<Frame> frames;
 
-    while (app.EventLoop()) {
+    while (AppEngine::App::EventLoop()) {
         ImGui::Begin("Dataset Scanner");
         if (ImGui::Button("Scan"))
             invoke_dirscan(header, image_classes, image_partitions, classPartitions, frames);
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
         }
 
         ImGui::End();
-        app.Render(clear_color);
+        AppEngine::App::Render(clear_color);
     }
 
     return 0;

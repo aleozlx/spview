@@ -26,7 +26,7 @@ int main(int, char**) {
     im.Load(image_data);
 #endif
 
-    while (app.EventLoop()){
+    while (AppEngine::App::EventLoop()){
         ImGui::Begin("DirectX11 Texture Test");
 #ifdef FIXTURES_DIR
         ImGui::Text("pointer = %p", im.id());
@@ -41,7 +41,7 @@ int main(int, char**) {
         //    else ++w;
         //}
         ImGui::End();
-        app.Render(clear_color);
+        AppEngine::App::Render(clear_color);
     }
 
     return 0;

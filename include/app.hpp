@@ -28,11 +28,21 @@ namespace spt::AppEngine {
     extern GLFWwindow* window;
 #endif
 
-    class App final {
-    public:
+    struct AppInitResult {
         int ok;
         const char *version_string;
 
+        inline static AppInitResult Ok(const char *version_string = nullptr) {
+            return {1, version_string};
+        }
+
+        inline static AppInitResult Err() {
+            return {0};
+        }
+    };
+
+    struct App {
+    public:
         App(App &&) = default;
 
         App &operator=(App &&) = default;
@@ -41,21 +51,13 @@ namespace spt::AppEngine {
 
         App &operator=(const App &) = delete;
 
-        ~App() { this->Shutdown(); }
+        ~App() { App::Shutdown(); }
 
-        inline static App Ok(const char *version_string = nullptr) {
-            return {1};
-        }
+        static AppInitResult Initialize();
 
-        inline static App Err() {
-            return {0};
-        }
+        static bool EventLoop();
 
-        static App Initialize();
-
-        bool EventLoop();
-
-        void Render(const ImVec4 &clear_color);
+        static void Render(const ImVec4 &clear_color);
 
 #if FEATURE_DirectX
         static ID3D11Device* GetDXDevice();
@@ -63,7 +65,7 @@ namespace spt::AppEngine {
 #endif
 
     private:
-        void Shutdown();
+        static void Shutdown();
     };
 
 #if _MSC_VER // Must use Windows API to hide console window
@@ -130,6 +132,26 @@ namespace spt::AppEngine {
         virtual ~FlatlandObject() = default;
         static FlatlandObject Parse(const char *src, size_t buffer_size);
         static size_t ValidBufferSize(const char *src, size_t buffer_size);
+    };
+
+    class IWindow {
+    public:
+        virtual IWindow* Show() = 0;
+        virtual bool Draw() = 0;
+        virtual ~IWindow() = default;
+
+        static std::string uuid(const int len) {
+            static const char alphanum[] =
+                    "0123456789"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "abcdefghijklmnopqrstuvwxyz";
+            char *buf = new char[len+1];
+            buf[len] = '\0';
+            for (int i = 0; i < len; ++i)
+                buf[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+            delete[] buf;
+            return std::string(buf);
+        }
     };
 }
 

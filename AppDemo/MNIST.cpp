@@ -14,7 +14,7 @@
 using namespace spt;
 using namespace dlib;
 
-const size_t max_buf_size = 5000;
+const size_t max_buf_size = 16<<10;
 static float x_data[max_buf_size];
 static float y_data1[max_buf_size];
 static float y_data2[max_buf_size];
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
     conf.grid_y.subticks = 5;
     conf.frame_size = ImVec2(500, 200);
 
-    while (app.EventLoop()) {
+    while (AppEngine::App::EventLoop()) {
         ImGui::Begin("MNIST");
         btnStartStop = model.IsRunning() ? "Stop" : "Run";
         if (ImGui::Button(btnStartStop)) {
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
         conf.values.count = buf_size;
         ImGui::Plot("Loss", conf);
         ImGui::End();
-        app.Render(clear_color);
+        AppEngine::App::Render(clear_color);
     }
 
     return 0;
