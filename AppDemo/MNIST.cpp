@@ -11,7 +11,7 @@
 #include <dlib/dnn.h>
 #include <dlib/data_io.h>
 
-using namespace spview;
+using namespace spt;
 using namespace dlib;
 
 const size_t max_buf_size = 5000;
@@ -148,7 +148,6 @@ int main(int argc, char *argv[]) {
     if (!app.ok) return 1;
     ImGuiIO &io = ImGui::GetIO();
     (void) io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     MNISTModel model;

@@ -16,7 +16,7 @@
 #include <SOIL/SOIL.h>
 #endif
 
-namespace spview {
+namespace spt {
 /// Management of image data with DirectX/OpenGL texture
     class TexImage {
     private:
