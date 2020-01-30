@@ -20,6 +20,11 @@ type Frame struct {
 	pname string
 }
 
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func main() {
 	var frames []Frame
 	var (
@@ -33,7 +38,11 @@ func main() {
 		ctUnknown = 0
 	)
 
-	root := `C:\Users\aleoz\datasets\Linnaeus 5 256X256`
+	if len(os.Args) == 1 || !exists(os.Args[1]) {
+		fmt.Printf("h classes=%d parts=%d images=%d unknown=%d\n", 0, 0, 0, 0)
+		return
+	}
+	root := os.Args[1]
 	err := filepath.Walk(root,
 		func(path string, info os.FileInfo, err error) error {
 			ctPath += 1

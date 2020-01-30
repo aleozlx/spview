@@ -2,7 +2,7 @@
 #include "teximage.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-using namespace spview;
+using namespace spt;
 const unsigned int WIDTH = 432;
 const unsigned int HEIGHT = 240;
 

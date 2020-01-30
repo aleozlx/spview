@@ -8,7 +8,8 @@ if(FEATURE_GUI)
         add_definitions(-DFEATURE_OpenGL)
     endif()
 
-    add_executable(DatasetScanner DatasetScanner.cpp)
+    add_executable(DatasetScanner DatasetScanner.cpp
+            ${INTEROPS_DIR}/tinyfiledialogs/tinyfiledialogs.c)
     target_link_libraries(DatasetScanner app_engine)
     add_dependencies(DatasetScanner dirscan)
 endif()

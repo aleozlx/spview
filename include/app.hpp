@@ -20,7 +20,7 @@
 #include <GLFW/glfw3.h>
 #endif
 
-namespace spview::AppEngine {
+namespace spt::AppEngine {
 #if FEATURE_DirectX
     extern WNDCLASSEX wc;
     extern HWND hwnd;
@@ -64,6 +64,41 @@ namespace spview::AppEngine {
 
     private:
         void Shutdown();
+    };
+
+#if _MSC_VER // Must use Windows API to hide console window
+#define PIPE_USE_POPEN 0
+#else
+#define PIPE_USE_POPEN 1
+#endif
+    class Pipe {
+    private:
+#if PIPE_USE_POPEN
+        FILE *fp;
+#else
+        HANDLE hChildStd_IN_Rd;
+        HANDLE hChildStd_IN_Wr;
+        HANDLE hChildStd_OUT_Rd;
+        HANDLE hChildStd_OUT_Wr;
+        HANDLE hChildStd_ERR_Rd;
+        HANDLE hChildStd_ERR_Wr;
+        PROCESS_INFORMATION piProcInfo;
+#endif
+
+    public:
+        Pipe();
+
+        ~Pipe() {
+            Close();
+        }
+
+        int Open(const char *cmdline, bool write = false);
+
+        int Close();
+
+        size_t Read(char *buffer, size_t size);
+
+        size_t Write(char *buffer, size_t size);
     };
 }
 
