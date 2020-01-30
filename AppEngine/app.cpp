@@ -715,8 +715,8 @@ namespace spt::AppEngine {
 
     }
 
-    FlatlandObject::FlatlandObject(char type, char sep, const char *src, size_t buffer_size) : FlatlandObject(type,
-                                                                                                              sep) {
+    FlatlandObject::FlatlandObject(char type, char sep, const char *src, size_t buffer_size) :
+            FlatlandObject(type, sep) {
         buffer_size = ValidBufferSize(src, buffer_size);
         this->PushValues(src + 2, buffer_size - 2);
     }

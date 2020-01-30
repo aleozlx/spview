@@ -76,7 +76,7 @@ func main() {
 	for cname := range classes {
 		fmt.Printf("c+%d+%s\n", classes[cname], cname)
 		for pname, _ := range classPartitions[cname] {
-			fmt.Printf("p+%d+%s\n", partitions[pname], pname)
+			fmt.Printf("p+%d+%s+%s\n", partitions[pname], pname, cname)
 		}
 	}
 	for _, ff := range frames {

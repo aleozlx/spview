@@ -16,7 +16,7 @@ function(ADD_GO_INSTALLABLE_PROGRAM NAME MAIN_SRC)
     endif()
     add_custom_target(${NAME}
             ${CMAKE_COMMAND} -E env GOPATH=${GOPATH} go build
-            -o "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${BIN_NAME}"
+            -o "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${BIN_NAME}" # TODO Generated MSVC Project has an extra level
 #            -o "${CMAKE_CURRENT_BINARY_DIR}/${BIN_NAME}"
             ${CMAKE_GO_FLAGS} ${MAIN_SRC}
             WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
