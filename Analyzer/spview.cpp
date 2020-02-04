@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <functional>
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -19,7 +20,6 @@
 #endif
 
 using namespace spt::AppEngine;
-static std::list<std::unique_ptr<IWindow>> windows;
 
 int main(int argc, char *argv[]) {
     auto app = App::Initialize();
@@ -27,11 +27,18 @@ int main(int argc, char *argv[]) {
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+
+    static std::list<std::unique_ptr<IWindow>> windows;
+    std::function<void(std::unique_ptr<IWindow>&&)> RegisterWindow = [](std::unique_ptr<IWindow> &&w) {
+        if (w->Show() != nullptr)
+            windows.push_back(std::move(w));
+    };
+
     { // Feed Window
         auto w = std::make_unique<WindowFeed>();
         if (argc == 2) w->SetStaticImagePath(argv[1]);
-        if (w->Show() != nullptr)
-            windows.push_back(std::move(w));
+        w->GrantCreateWindow(RegisterWindow);
+        RegisterWindow(std::move(w));
     }
 
     cv::Mat frame, frame_tex;

@@ -43,3 +43,7 @@ IWindow* WindowFeed::Show() {
 void WindowFeed::SetStaticImagePath(const char *src) {
     std::strncpy(static_image_path, src, sz_static_image_path);
 }
+
+void WindowFeed::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {
+    this->CreateWindow = std::move(cw);
+}

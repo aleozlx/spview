@@ -5,6 +5,7 @@
 #define _CRT_SECURE_NO_WARNINGS // before <cstdlib>
 #endif
 
+#include <functional>
 #include <memory>
 #include "app.hpp"
 #include "tinyfiledialogs.h"
@@ -13,6 +14,7 @@ class WindowFeed: public spt::AppEngine::IWindow {
 protected:
     static const size_t sz_static_image_path = 512;
     char *static_image_path; // char[512]
+    std::function<void(std::unique_ptr<IWindow>&&)> CreateWindow = nullptr;
 public:
     static const char *static_image_ext[];
 
@@ -24,6 +26,7 @@ public:
     bool Draw() override;
     IWindow* Show() override;
     void SetStaticImagePath(const char *src);
+    void GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)>);
 };
 
 #endif //SPVIEW_WINDOWFEED_H
