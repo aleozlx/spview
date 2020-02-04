@@ -1,4 +1,4 @@
-#include "WindowFeed.h"
+#include "spview.h"
 using namespace spt::AppEngine;
 
 const char *WindowFeed::static_image_ext[] = {"*.jpg", "*.png"};
@@ -20,7 +20,6 @@ WindowFeed::WindowFeed(WindowFeed &&o) noexcept {
 bool WindowFeed::Draw() {
     ImGui::Begin("Feed");
     if (ImGui::Button("Open")) {
-        // TODO API to create new window
 //        invoke_dirscan(header, image_classes, image_partitions, classPartitions, frames);
     }
     ImGui::SameLine();
