@@ -21,7 +21,7 @@
 using namespace spt::AppEngine;
 static std::list<std::unique_ptr<IWindow>> windows;
 
-int main(int, char**) {
+int main(int argc, char *argv[]) {
     auto app = App::Initialize();
     if (!app.ok) return 1;
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -29,6 +29,7 @@ int main(int, char**) {
 
     { // Feed Window
         auto w = std::make_unique<WindowFeed>();
+        if (argc == 2) w->SetStaticImagePath(argv[1]);
         if (w->Show() != nullptr)
             windows.push_back(std::move(w));
     }
@@ -52,18 +53,18 @@ int main(int, char**) {
     spt::GSLIC _superpixel(gslic_settings);
 #endif
     while (App::EventLoop()){
-        ImGui::Begin("Superpixel Analyzer");
-#ifdef FEATURE_GSLICR
-        spt::ISuperpixel* superpixel = _superpixel.Compute(frame);
-        superpixel->GetContour(superpixel_contour);
-        cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
-        frame_tex.setTo(cv::Scalar(200, 5, 240), superpixel_contour);
-#endif
-        cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
-        imSuperpixels.Load(frame_tex.data);
-        ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
-        ImGui::Text("windows: %llu", windows.size());
-        ImGui::End();
+//        ImGui::Begin("Superpixel Analyzer");
+//#ifdef FEATURE_GSLICR
+//        spt::ISuperpixel* superpixel = _superpixel.Compute(frame);
+//        superpixel->GetContour(superpixel_contour);
+//        cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
+//        frame_tex.setTo(cv::Scalar(200, 5, 240), superpixel_contour);
+//#endif
+//        cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
+//        imSuperpixels.Load(frame_tex.data);
+//        ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
+//        ImGui::Text("windows: %llu", windows.size());
+//        ImGui::End();
 
         for (auto w = windows.begin(); w != windows.end();) {
             if (!(*w)->Draw()) windows.erase(w++);
