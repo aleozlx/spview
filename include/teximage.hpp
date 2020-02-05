@@ -26,7 +26,7 @@ namespace spt {
         ID3D11ShaderResourceView *texid;
 		D3D11_TEXTURE2D_DESC tex_desc;
 		ID3D11Texture2D *pTexture;
-		//D3D11_MAPPED_SUBRESOURCE mappedResource;
+		D3D11_MAPPED_SUBRESOURCE mappedResource;
 #elif FEATURE_OpenGL
         GLuint texid;
 #endif
@@ -89,12 +89,20 @@ namespace spt {
 			else {
 				// Cannot figure out the issue with texture format
 				// ref: https://docs.microsoft.com/en-us/windows/win32/direct3d11/how-to--use-dynamic-resources
-				//g_pd3dDeviceContext->Map(pTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-				//memcpy(mappedResource.pData, data, width*height*4); // TODO hard-coded size
-				//g_pd3dDeviceContext->Unmap(pTexture, 0);
+				g_pd3dDeviceContext->Map(pTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				//memcpy(mappedResource.pData, data, width*height*4); // incorrect
+				const unsigned char *pFrameData = data;
+				char *mappedData = static_cast<char*>(mappedResource.pData);
+				const size_t stride_line = width * 4; // TODO hard-coded size
+				for (auto i = 0; i < height; i++) {
+					memcpy(mappedData, pFrameData, stride_line);
+					mappedData += mappedResource.RowPitch;
+					pFrameData += stride_line;
+				}
+				g_pd3dDeviceContext->Unmap(pTexture, 0);
 
-				// UpdateSubresource is more efficient anyway 
-				g_pd3dDeviceContext->UpdateSubresource(pTexture, 0, NULL, data, tex_desc.Width * 4, 0);
+				// UpdateSubresource is more efficient? How does it work??
+				//g_pd3dDeviceContext->UpdateSubresource(pTexture, 0, NULL, data, tex_desc.Width * 4, 0);
 			}
 #elif FEATURE_OpenGL
             this->texid = SOIL_create_OGL_texture(
