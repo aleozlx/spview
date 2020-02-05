@@ -50,14 +50,12 @@ IWindow* WindowAnalyzerS::Show() {
 }
 
 void WindowAnalyzerS::ReloadSuperpixels() {
-	static int a;
 #ifdef FEATURE_GSLICR
     spt::GSLIC _superpixel(this->gslic_settings);
     auto superpixel = _superpixel.Compute(this->frame);
     superpixel->GetContour(this->superpixel_contour);
     cv::cvtColor(this->frame, this->frame_tex, cv::COLOR_BGR2RGB);
-	this->frame_tex.setTo(cv::Scalar(200, a++, 240), this->superpixel_contour);
-	if (a > 255) a = 0;
+	this->frame_tex.setTo(cv::Scalar(200, 5, 240), this->superpixel_contour);
 
     // Convert to texture Format
     cv::cvtColor(this->frame_tex, this->frame_tex, cv::COLOR_RGB2RGBA);

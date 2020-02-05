@@ -87,7 +87,6 @@ namespace spt {
 				g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &texid);
 			}
 			else {
-				// Cannot figure out the issue with texture format
 				// ref: https://docs.microsoft.com/en-us/windows/win32/direct3d11/how-to--use-dynamic-resources
 				g_pd3dDeviceContext->Map(pTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 				//memcpy(mappedResource.pData, data, width*height*4); // incorrect
