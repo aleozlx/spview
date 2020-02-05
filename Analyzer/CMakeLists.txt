@@ -18,6 +18,7 @@ endif()
 if(FEATURE_GUI)
     add_executable(SuperpixelAnalyzer spview.cpp
             WindowFeed.cpp
+            WindowAnalyzerS.cpp
             ${INTEROPS_DIR}/tinyfiledialogs/tinyfiledialogs.c)
     target_link_libraries(SuperpixelAnalyzer
             app_engine

@@ -20,7 +20,8 @@ WindowFeed::WindowFeed(WindowFeed &&o) noexcept {
 bool WindowFeed::Draw() {
     ImGui::Begin("Feed");
     if (ImGui::Button("Open")) {
-//        invoke_dirscan(header, image_classes, image_partitions, classPartitions, frames);
+        auto w = std::make_unique<WindowAnalyzerS>(std::string(static_image_path));
+        this->CreateIWindow(std::move(w));
     }
     ImGui::SameLine();
     if (ImGui::Button("Select File...")) {
@@ -29,7 +30,6 @@ bool WindowFeed::Draw() {
         if (pth)
             SetStaticImagePath(pth);
     }
-    ImGui::SameLine();
     ImGui::InputText("", static_image_path, sizeof(static_image_path));
     ImGui::End();
     return true;
@@ -44,5 +44,5 @@ void WindowFeed::SetStaticImagePath(const char *src) {
 }
 
 void WindowFeed::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {
-    this->CreateWindow = std::move(cw);
+    this->CreateIWindow = std::move(cw);
 }
