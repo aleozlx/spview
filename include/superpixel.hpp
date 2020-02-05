@@ -22,7 +22,7 @@ namespace spt {
 
         virtual unsigned int GetNumSuperpixels() = 0;
 
-        virtual ~ISuperpixel() {}
+		virtual ~ISuperpixel() = default;
     };
 
 #ifdef FEATURE_OCVSLIC
@@ -54,7 +54,7 @@ namespace spt {
     public:
         GSLIC();
 
-        GSLIC(gSLICr::objects::settings settings);
+        explicit GSLIC(gSLICr::objects::settings settings);
 
         ISuperpixel *Compute(cv::InputArray frame) override;
 
@@ -63,6 +63,8 @@ namespace spt {
         void GetLabels(cv::OutputArray output) override;
 
         unsigned int GetNumSuperpixels() override;
+
+		~GSLIC() override = default;
 
     protected:
         unsigned int width, height;
