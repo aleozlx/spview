@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     static std::list<std::unique_ptr<IWindow>> windows;
-    std::function<void(std::unique_ptr<IWindow>&&)> RegisterWindow = [](std::unique_ptr<IWindow> &&w) {
+    auto RegisterWindow = [](std::unique_ptr<IWindow> &&w) {
         if (w->Show() != nullptr)
             windows.push_back(std::move(w));
     };

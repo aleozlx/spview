@@ -14,6 +14,35 @@
 #include "teximage.hpp"
 #include "superpixel.hpp"
 
+template<typename T>
+struct LazyLoader {
+    T val, _new_val;
+
+    explicit LazyLoader(T init_val) : val(init_val) {
+
+    }
+
+    /// Sync value to a temp var for data binding
+    T *operator&() { // NOLINT I know exactly what I am doing!
+        _new_val = val;
+        return &_new_val;
+    }
+
+    /// Sync value back and detect changes
+    bool Update() {
+        return Update(_new_val);
+    }
+
+    /// Update value and detect changes
+    bool Update(T new_val) {
+        if (new_val == val) return false;
+        else {
+            val = new_val;
+            return true;
+        }
+    }
+};
+
 class WindowFeed: public spt::AppEngine::IWindow {
 protected:
     static const size_t sz_static_image_path = 512;
@@ -36,17 +65,20 @@ public:
 class WindowAnalyzerS: public spt::AppEngine::IWindow {
 protected:
     bool _is_shown = false;
+    LazyLoader<int> d_superpixel_size;
+    std::string title;
 #ifdef FEATURE_GSLICR
     cv::Mat frame, frame_tex;
     cv::Mat superpixel_contour;
     gSLICr::objects::settings gslic_settings;
-    spt::GSLIC _superpixel;
+//    spt::GSLIC _superpixel;
     spt::TexImage imSuperpixels;
 #endif
 public:
-    WindowAnalyzerS(std::string src);
+    explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
     IWindow* Show() override;
+    void ReloadSuperpixels();
 };
 
 #endif //SPVIEW_SPVIEW_H
