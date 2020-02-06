@@ -36,7 +36,6 @@ bool WindowAnalyzerS::Draw() {
         gslic_settings.spixel_size = b_superpixel_size.val;
         this->ReloadSuperpixels();
     }
-//    ImGui::Text("test: %d %d %p", a, gslic_settings.spixel_size, frame_tex.data);
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
     ImGui::End();
     return b_is_shown;
@@ -85,17 +84,17 @@ IWindow* WindowAnalyzerS::Show() {
 
 void WindowAnalyzerS::ReloadSuperpixels() {
 #ifdef FEATURE_GSLICR
-    spt::GSLIC _superpixel(this->gslic_settings);
-    auto superpixel = _superpixel.Compute(this->frame);
-    superpixel->GetContour(this->superpixel_contour);
-    cv::cvtColor(this->frame, this->frame_tex, cv::COLOR_BGR2RGB);
-	this->frame_tex.setTo(cv::Scalar(200, 5, 240), this->superpixel_contour);
+    spt::GSLIC _superpixel(gslic_settings);
+    auto superpixel = _superpixel.Compute(frame);
+    superpixel->GetContour(superpixel_contour);
+    cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
+	frame_tex.setTo(cv::Scalar(200, 5, 240), superpixel_contour);
 
     // Convert to texture Format
-    cv::cvtColor(this->frame_tex, this->frame_tex, cv::COLOR_RGB2RGBA);
+    cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
 #else
-    cv::cvtColor(this->frame, this->frame_tex, cv::COLOR_BGR2RGBA);
+    cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGBA);
 #endif
-    this->imSuperpixels.Load(this->frame_tex.data);
+    imSuperpixels.Load(frame_tex.data);
 }
 
