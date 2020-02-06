@@ -8,14 +8,14 @@ std::string getFname(std::string fname) {
     return fname;
 }
 
-WindowAnalyzerS::WindowAnalyzerS(const std::string &src): d_superpixel_size(18) {
+WindowAnalyzerS::WindowAnalyzerS(const std::string &src): b_superpixel_size(18) {
     frame = cv::imread(src);
     cv::Size frame_size = frame.size();
     const int width = frame_size.width, height = frame_size.height, channels=3;
     imSuperpixels = spt::TexImage(width, height, channels);
     gslic_settings.img_size = { width, height };
     gslic_settings.no_segs = 64;
-    gslic_settings.spixel_size = d_superpixel_size.val;
+    gslic_settings.spixel_size = b_superpixel_size.val;
     gslic_settings.no_iters = 5;
     gslic_settings.coh_weight = 0.6f;
     gslic_settings.do_enforce_connectivity = true;
@@ -29,17 +29,17 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src): d_superpixel_size(18) 
 }
 
 bool WindowAnalyzerS::Draw() {
-    ImGui::Begin(title.c_str(), &_is_shown, ImGuiWindowFlags_MenuBar);
+    ImGui::Begin(title.c_str(), &b_is_shown, ImGuiWindowFlags_MenuBar);
     this->DrawMenuBar();
-    ImGui::SliderInt("Superpixel Size", &d_superpixel_size, 8, 64);
-    if (d_superpixel_size.Update()) {
-        gslic_settings.spixel_size = d_superpixel_size.val;
+    ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
+    if (b_superpixel_size.Update()) {
+        gslic_settings.spixel_size = b_superpixel_size.val;
         this->ReloadSuperpixels();
     }
 //    ImGui::Text("test: %d %d %p", a, gslic_settings.spixel_size, frame_tex.data);
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
     ImGui::End();
-    return _is_shown;
+    return b_is_shown;
 }
 
 void WindowAnalyzerS::DrawMenuBar() {
@@ -47,7 +47,7 @@ void WindowAnalyzerS::DrawMenuBar() {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Save as...");
             if(ImGui::MenuItem("Close"))
-                this->_is_shown = false;
+                this->b_is_shown = false;
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Superpixels")) {
@@ -79,7 +79,7 @@ void WindowAnalyzerS::DrawMenuBar() {
 
 IWindow* WindowAnalyzerS::Show() {
     this->ReloadSuperpixels();
-    this->_is_shown = true;
+    this->b_is_shown = true;
     return dynamic_cast<IWindow*>(this);
 }
 

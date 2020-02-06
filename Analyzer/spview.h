@@ -46,10 +46,12 @@ struct LazyLoader {
 class WindowFeed: public spt::AppEngine::IWindow {
 protected:
     static const size_t sz_static_image_path = 512;
-    char *static_image_path; // char[512]
+    char *b_static_image_path; // char[512]
     std::function<void(std::unique_ptr<IWindow>&&)> CreateIWindow = nullptr;
+    int b_camera_selection = 0;
 public:
     static const char *static_image_ext[];
+    static const char *static_video_ext[];
 
     WindowFeed();
     ~WindowFeed() override;
@@ -64,22 +66,26 @@ public:
 
 class WindowAnalyzerS: public spt::AppEngine::IWindow {
 protected:
-    bool _is_shown = false;
-    LazyLoader<int> d_superpixel_size;
+    bool b_is_shown = false;
+    LazyLoader<int> b_superpixel_size;
     std::string title;
 #ifdef FEATURE_GSLICR
     cv::Mat frame, frame_tex;
     cv::Mat superpixel_contour;
     gSLICr::objects::settings gslic_settings;
-//    spt::GSLIC _superpixel;
     spt::TexImage imSuperpixels;
 #endif
+
+    virtual void DrawMenuBar();
+    void ReloadSuperpixels();
 public:
     explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
-    void DrawMenuBar();
     IWindow* Show() override;
-    void ReloadSuperpixels();
+};
+
+class WindowAnalysisD: public WindowAnalyzerS {
+
 };
 
 #endif //SPVIEW_SPVIEW_H
