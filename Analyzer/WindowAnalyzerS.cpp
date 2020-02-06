@@ -29,18 +29,52 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src): d_superpixel_size(18) 
 }
 
 bool WindowAnalyzerS::Draw() {
-    static int a;
-    ImGui::Begin(title.c_str(), &_is_shown);
+    ImGui::Begin(title.c_str(), &_is_shown, ImGuiWindowFlags_MenuBar);
+    this->DrawMenuBar();
     ImGui::SliderInt("Superpixel Size", &d_superpixel_size, 8, 64);
     if (d_superpixel_size.Update()) {
         gslic_settings.spixel_size = d_superpixel_size.val;
         this->ReloadSuperpixels();
-        a+=1;
     }
-    ImGui::Text("test: %d %d %p", a, gslic_settings.spixel_size, frame_tex.data);
+//    ImGui::Text("test: %d %d %p", a, gslic_settings.spixel_size, frame_tex.data);
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
     ImGui::End();
     return _is_shown;
+}
+
+void WindowAnalyzerS::DrawMenuBar() {
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            ImGui::MenuItem("Save as...");
+            if(ImGui::MenuItem("Close"))
+                this->_is_shown = false;
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Superpixels")) {
+            ImGui::MenuItem("gSLIC Options");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Stats")) {
+            ImGui::MenuItem("Count");
+            ImGui::MenuItem("Histogram");
+            ImGui::MenuItem("Entropy");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Features")) {
+            ImGui::MenuItem("VGG16");
+            ImGui::MenuItem("VGG19");
+            ImGui::MenuItem("Res50");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Structure")) {
+            ImGui::MenuItem("MST");
+            ImGui::MenuItem("CRF");
+            ImGui::MenuItem("GNG");
+            ImGui::MenuItem("MIL Bag");
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
 }
 
 IWindow* WindowAnalyzerS::Show() {

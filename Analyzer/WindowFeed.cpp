@@ -19,7 +19,7 @@ WindowFeed::WindowFeed(WindowFeed &&o) noexcept {
 
 bool WindowFeed::Draw() {
     ImGui::Begin("Feed");
-    if (ImGui::Button("Open")) {
+    if (ImGui::Button("Run")) {
         auto w = std::make_unique<WindowAnalyzerS>(std::string(static_image_path));
         this->CreateIWindow(std::move(w));
     }
@@ -31,6 +31,7 @@ bool WindowFeed::Draw() {
             SetStaticImagePath(pth);
     }
     ImGui::InputText("", static_image_path, sizeof(static_image_path));
+    ImGui::Separator();
     ImGui::End();
     return true;
 }

@@ -77,6 +77,7 @@ protected:
 public:
     explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
+    void DrawMenuBar();
     IWindow* Show() override;
     void ReloadSuperpixels();
 };
