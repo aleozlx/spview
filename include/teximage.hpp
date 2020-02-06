@@ -93,7 +93,7 @@ namespace spt {
 				const unsigned char *pFrameData = data;
 				char *mappedData = static_cast<char*>(mappedResource.pData);
 				const size_t stride_line = width * 4; // TODO hard-coded size
-				for (auto i = 0; i < height; i++) {
+				for (unsigned i = 0; i < height; i++) {
 					memcpy(mappedData, pFrameData, stride_line);
 					mappedData += mappedResource.RowPitch;
 					pFrameData += stride_line;

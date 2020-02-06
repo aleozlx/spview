@@ -43,7 +43,14 @@ struct LazyLoader {
     }
 };
 
-class WindowFeed: public spt::AppEngine::IWindow {
+class BaseWindow: public spt::AppEngine::IWindow {
+public:
+    inline IWindow* Show() override {
+        return dynamic_cast<IWindow*>(this);
+    }
+};
+
+class WindowFeed: public BaseWindow {
 protected:
     static const size_t sz_static_image_path = 512;
     char *b_static_image_path; // char[512]
@@ -59,15 +66,19 @@ public:
     WindowFeed& operator=(const WindowFeed&) = delete;
     WindowFeed(WindowFeed&&) noexcept;
     bool Draw() override;
-    IWindow* Show() override;
     void SetStaticImagePath(const char *src);
     void GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)>);
 };
 
-class WindowAnalyzerS: public spt::AppEngine::IWindow {
+class WindowRegistry: public BaseWindow {
+protected:
+public:
+    bool Draw() override;
+};
+
+class BaseAnalyzerWindow: public BaseWindow {
 protected:
     bool b_is_shown = false;
-    LazyLoader<int> b_superpixel_size;
     std::string title;
 #ifdef FEATURE_GSLICR
     cv::Mat frame, frame_tex;
@@ -75,6 +86,11 @@ protected:
     gSLICr::objects::settings gslic_settings;
     spt::TexImage imSuperpixels;
 #endif
+};
+
+class WindowAnalyzerS: public BaseAnalyzerWindow {
+protected:
+    LazyLoader<int> b_superpixel_size;
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
@@ -84,7 +100,7 @@ public:
     IWindow* Show() override;
 };
 
-class WindowAnalysisD: public WindowAnalyzerS {
+class WindowAnalysisD: public BaseAnalyzerWindow {
 
 };
 

@@ -32,6 +32,11 @@ int main(int argc, char *argv[]) {
         RegisterWindow(std::move(w));
     }
 
+    { // Resource Registry Window
+        auto w = std::make_unique<WindowRegistry>();
+        RegisterWindow(std::move(w));
+    }
+
     while (App::EventLoop()){
         for (auto w = windows.begin(); w != windows.end();) {
             if (!(*w)->Draw()) windows.erase(w++);

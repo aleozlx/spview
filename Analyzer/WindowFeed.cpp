@@ -58,10 +58,6 @@ bool WindowFeed::Draw() {
     return true;
 }
 
-IWindow* WindowFeed::Show() {
-    return dynamic_cast<IWindow*>(this);
-}
-
 void WindowFeed::SetStaticImagePath(const char *src) {
     std::strncpy(b_static_image_path, src, sz_static_image_path);
 }
