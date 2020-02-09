@@ -4,6 +4,7 @@
 #include <map>
 #include <algorithm>
 #include <cassert>
+#include <limits>
 
 template<typename T>
 struct Vector2D {
@@ -58,54 +59,58 @@ public:
     }
 };
 
-const unsigned AABB_NULL = 0xffffffff;
+const unsigned AABB_NULL = UINT_MAX;
+
+template<typename BoxType>
+class AABBTreeNode {
+public:
+    unsigned parent = AABB_NULL,
+            left = AABB_NULL,
+            right = AABB_NULL,
+            next = AABB_NULL;
+
+    AABBTreeNode() = default;
+
+    AABBTreeNode(const BoxType &box) { // NOLINT
+        SetBox(box);
+    }
+
+    bool IsLeaf() const {
+        return left == AABB_NULL;
+    }
+
+    void AssignBox(const AABBTreeNode<BoxType> &_node) {
+        SetBox(_node.box);
+    }
+
+    void SetBox(const BoxType &_box) {
+        this->box = _box;
+        this->area = box.Area();
+    }
+
+    inline const BoxType &GetBox() const {
+        return box;
+    }
+
+    inline typename BoxType::Metric Area() const {
+        return area;
+    }
+
+    inline const BoxType &operator*() const {
+        return box;
+    }
+
+protected:
+    BoxType box;
+    typename BoxType::Metric area = 0;
+};
 
 template<typename BoxType>
 class AABBTree {
 protected:
-    class NodeType {
-    public:
-        unsigned parent = AABB_NULL,
-                left = AABB_NULL,
-                right = AABB_NULL,
-                next = AABB_NULL;
-
-        NodeType() = default;
-
-        NodeType(const BoxType &box) { // NOLINT
-            SetBox(box);
-        }
-
-        bool IsLeaf() const {
-            return left == AABB_NULL;
-        }
-
-        void AssignBox(const NodeType &_node) {
-            SetBox(_node.box);
-        }
-
-        void SetBox(const BoxType &_box) {
-            this->box = _box;
-            this->area = box.Area();
-        }
-
-        inline const BoxType &GetBox() const {
-            return box;
-        }
-
-        inline typename BoxType::Metric Area() const {
-            return area;
-        }
-
-        inline const BoxType &operator*() const {
-            return box;
-        }
-
-    protected:
-        BoxType box;
-        typename BoxType::Metric area = 0;
-    };
-
+    template<typename BoxType> friend
+    struct AABBTreeRO;
+    typedef AABBTreeNode<BoxType> NodeType;
     std::vector<NodeType> _nodes;
     unsigned _rootNodeIndex;
     unsigned _allocatedNodeCount;
@@ -243,6 +248,8 @@ protected:
     }
 
 public:
+    typedef BoxType BoxType;
+
     explicit AABBTree(unsigned initialSize = 1) : _rootNodeIndex(AABB_NULL), _allocatedNodeCount(0),
                                                   _nextFreeNodeIndex(0), _nodeCapacity(initialSize) {
         if (initialSize == 0) initialSize = 1;
@@ -254,35 +261,25 @@ public:
         _nodes[initialSize - 1].next = AABB_NULL;
     }
 
+    inline size_t Count() {
+        return _allocatedNodeCount;
+    }
+
     void Insert(const BoxType &box) {
         unsigned nodeIndex = allocateNode();
         _nodes[nodeIndex].SetBox(box);
         insertLeaf(nodeIndex);
     }
 
+    template<typename TreeType, typename Geometry>
+    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g);
+
     template<typename Geometry>
-    std::vector<BoxType> operator&&(const Geometry &g) const {
-        std::vector<BoxType> overlaps;
-        std::stack<unsigned> stack;
-        stack.push(_rootNodeIndex);
-        while (!stack.empty()) {
-            unsigned nodeIndex = stack.top();
-            stack.pop();
-            if (nodeIndex == AABB_NULL) continue;
-            const auto &node = _nodes[nodeIndex];
-            if (node.GetBox() && g) {
-                if (node.IsLeaf())
-                    overlaps.push_back(*node);
-                else {
-                    stack.push(node.left);
-                    stack.push(node.right);
-                }
-            }
-        }
-        return overlaps;
+    inline std::vector<BoxType> operator&&(const Geometry &g) const {
+        return QueryAABBTree(this, g);
     }
 
-    void Debug() {
+    void Debug() const {
         std::stack<unsigned> s;
         s.push(this->_rootNodeIndex);
         while (!s.empty()) {
@@ -300,6 +297,51 @@ public:
         }
     }
 };
+
+template<typename B>
+struct AABBTreeRO {
+    typedef AABBTreeNode<B> NodeType;
+    typedef B BoxType;
+    const unsigned _rootNodeIndex;
+    const NodeType *const _nodes;
+
+    AABBTreeRO(unsigned root, const void *data) : _rootNodeIndex(root),
+                                                  _nodes(reinterpret_cast<const NodeType *>(data)) {
+    }
+
+    explicit AABBTreeRO(const AABBTree<B> &tree) : AABBTreeRO(tree._rootNodeIndex, tree._nodes.data()) {
+    }
+
+    template<typename TreeType, typename Geometry>
+    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g);
+
+    template<typename Geometry>
+    inline std::vector<B> operator&&(const Geometry &g) const {
+        return QueryAABBTree(this, g);
+    }
+};
+
+template<typename TreeType, typename Geometry>
+std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g) {
+    std::vector<typename TreeType::BoxType> overlaps;
+    std::stack<unsigned> stack;
+    stack.push(tree->_rootNodeIndex);
+    while (!stack.empty()) {
+        unsigned nodeIndex = stack.top();
+        stack.pop();
+        if (nodeIndex == AABB_NULL) continue;
+        const auto &node = tree->_nodes[nodeIndex];
+        if (node.GetBox() && g) {
+            if (node.IsLeaf())
+                overlaps.push_back(*node);
+            else {
+                stack.push(node.left);
+                stack.push(node.right);
+            }
+        }
+    }
+    return overlaps;
+}
 
 typedef Box2D<float> Box2Df;
 
@@ -327,6 +369,16 @@ int main(int, char **) {
     Vector2D<float> v = {6, 6};
     auto x2 = t && v;
     for (const auto &b: x2) {
+        std::cout << "box " << b << std::endl;
+        std::cout << "======" << std::endl;
+    }
+
+    AABBTreeRO<Box2Df> t2(t);
+    for (const auto &b: t2 && z) {
+        std::cout << "box " << b << std::endl;
+        std::cout << "======" << std::endl;
+    }
+    for (const auto &b: t2 && v) {
         std::cout << "box " << b << std::endl;
         std::cout << "======" << std::endl;
     }
