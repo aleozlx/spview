@@ -14,4 +14,3 @@ if(FEATURE_GUI)
     add_dependencies(DatasetScanner dirscan)
 endif()
 
-add_library(georoutine STATIC bbox.cpp)
