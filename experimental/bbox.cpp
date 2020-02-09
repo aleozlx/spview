@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <stack>
 #include <map>
@@ -106,11 +107,12 @@ protected:
 };
 
 template<typename B>
-struct AABBTreeRO;
+class AABBTreeRO;
 
 template<typename BoxType>
 class AABBTree {
-    friend struct AABBTreeRO<BoxType>;
+    friend class AABBTreeRO<BoxType>;
+
 protected:
     typedef AABBTreeNode<BoxType> NodeType;
     std::vector<NodeType> _nodes;
@@ -301,17 +303,43 @@ public:
 };
 
 template<typename B>
-struct AABBTreeRO {
+class AABBTreeRO {
+protected:
     typedef AABBTreeNode<B> NodeType;
     typedef B BoxType;
-    const unsigned _rootNodeIndex;
-    const NodeType *const _nodes;
+    struct AABBTreeROHeader {
+        unsigned root = 0;
+        size_t count = 0;
+    };
+    union {
+        unsigned _rootNodeIndex;
+        AABBTreeROHeader header;
+    };
 
-    AABBTreeRO(unsigned root, const void *data) : _rootNodeIndex(root),
-                                                  _nodes(reinterpret_cast<const NodeType *>(data)) {
+    const NodeType *const _nodes;
+    const bool _owndata;
+
+    AABBTreeRO(unsigned root, const void *data, size_t count) :
+            header({root, count}),
+            _nodes(reinterpret_cast<const NodeType *>(data)),
+            _owndata(false) {
     }
 
-    explicit AABBTreeRO(const AABBTree<B> &tree) : AABBTreeRO(tree._rootNodeIndex, tree._nodes.data()) { // NOLINT
+private:
+    AABBTreeRO(const AABBTreeROHeader &&_header, const void *data) :
+            header(_header),
+            _nodes(reinterpret_cast<const NodeType *>(data)),
+            _owndata(true) {
+    }
+
+public:
+    explicit AABBTreeRO(const AABBTree<B> &tree) :
+            AABBTreeRO(tree._rootNodeIndex, tree._nodes.data(), tree._allocatedNodeCount) {
+    }
+
+    virtual ~AABBTreeRO() {
+        if (_owndata)
+            delete[] _nodes;
     }
 
     template<typename TreeType, typename Geometry>
@@ -322,12 +350,18 @@ struct AABBTreeRO {
         return QueryAABBTree(this, g);
     }
 
-    void Save(std::ostream &s) {
-        // TODO impl serialization
+    void Save(std::ostream &s) const {
+        s.write(reinterpret_cast<const char *>(&header), sizeof(header));
+        s.write(reinterpret_cast<const char *>(_nodes), sizeof(NodeType) * header.count);
     }
 
-    void Load(std::istream &s) {
-        // TODO impl deserialization
+    static AABBTreeRO<B> Load(std::istream &s) {
+        typename AABBTreeRO<B>::AABBTreeROHeader header;
+        s.read(reinterpret_cast<char *>(&header), sizeof(header));
+        auto nodes = new NodeType[header.count];
+        std::cout<<"root: "<<header.root<<"  node count: "<<header.count<<std::endl;
+        s.read(reinterpret_cast<char *>(nodes), sizeof(NodeType) * header.count);
+        return AABBTreeRO<B>(std::move(header), nodes);
     }
 };
 
@@ -383,13 +417,31 @@ int main(int, char **) {
         std::cout << "======" << std::endl;
     }
 
-    AABBTreeRO<Box2Df> t2(t);
-    for (const auto &b: t2 && z) {
-        std::cout << "box " << b << std::endl;
-        std::cout << "======" << std::endl;
+    {
+        std::cout << "Saving tree..." << std::endl;
+        AABBTreeRO<Box2Df> t2(t);
+        std::fstream fout;
+        fout.open("aabbtree_test.data", std::fstream::out);
+        t2.Save(fout);
+        fout.close();
     }
-    for (const auto &b: t2 && v) {
-        std::cout << "box " << b << std::endl;
-        std::cout << "======" << std::endl;
+
+    {
+        std::cout << "Loading tree..." << std::endl;
+        std::fstream fin;
+        fin.open("aabbtree_test.data");
+        auto t3 = AABBTreeRO<Box2Df>::Load(fin);
+        fin.close();
+
+        for (const auto &b: t3 && z) {
+            std::cout << "box " << b << std::endl;
+            std::cout << "======" << std::endl;
+        }
+        for (const auto &b: t3 && v) {
+            std::cout << "box " << b << std::endl;
+            std::cout << "======" << std::endl;
+        }
     }
+
+
 }
