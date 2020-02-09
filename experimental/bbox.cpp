@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cassert>
 #include <limits>
-
+#define SPT_DEBUG
 template<typename T>
 struct Vector2D {
     T x = 0, y = 0;
@@ -282,7 +282,7 @@ public:
     inline std::vector<BoxType> operator&&(const Geometry &g) const {
         return QueryAABBTree(this, g);
     }
-
+#ifdef SPT_DEBUG
     void Debug() const {
         std::stack<unsigned> s;
         s.push(this->_rootNodeIndex);
@@ -300,6 +300,7 @@ public:
             }
         }
     }
+#endif
 };
 
 template<typename B>

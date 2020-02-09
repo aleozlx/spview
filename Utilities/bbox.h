@@ -3,59 +3,6 @@
 #define AABB_NULL (UINT_MAX)
 
 namespace spt::geo {
-    template<typename T>
-    struct Vector2D {
-        T x = 0, y = 0;
-    };
-
-    template<typename T>
-    class Box2D {
-    protected:
-        typedef Box2D<T> Self;
-    public:
-        typedef T Metric;
-
-        T xmin = 0, ymin = 0, xmax = 0, ymax = 0;
-
-        inline T Area() const {
-            return Width() * Height();
-        }
-
-        inline T Width() const {
-            return xmax - xmin;
-        }
-
-        inline T Height() const {
-            return ymax - ymin;
-        }
-
-        bool operator&&(const Self &other) const {
-            return xmax > other.xmin &&
-                   xmin < other.xmax &&
-                   ymax > other.ymin &&
-                   ymin < other.ymax;
-        }
-
-        bool operator&&(const Vector2D<T> &p) const {
-            return xmax >= p.x &&
-                   xmin <= p.x &&
-                   ymax >= p.y &&
-                   ymin <= p.y;
-        }
-
-        Self operator+(const Self &other) const {
-            return {
-                    std::min(xmin, other.xmin), std::min(ymin, other.ymin),
-                    std::max(xmax, other.xmax), std::max(ymax, other.ymax)
-            };
-        }
-
-        friend std::ostream &operator<<(std::ostream &os, const Self &box) {
-            os << box.xmin << " " << box.ymin << " " << box.xmax << " " << box.ymax;
-            return os;
-        }
-    };
-
     template<typename BoxType>
     class AABBTreeNode {
     public:
@@ -101,11 +48,12 @@ namespace spt::geo {
     };
 
     template<typename B>
-    struct AABBTreeRO;
+    class AABBTreeRO;
 
     template<typename BoxType>
     class AABBTree {
-        friend struct AABBTreeRO<BoxType>;
+        friend class AABBTreeRO<BoxType>;
+
     protected:
         typedef AABBTreeNode<BoxType> NodeType;
         std::vector<NodeType> _nodes;
@@ -164,8 +112,8 @@ namespace spt::geo {
 
                 auto combinedAabb = *treeNode + **leafNode;
 
-                typename BoxType::Metric newParentNodeCost = 2 * combinedAabb.Area();
-                typename BoxType::Metric minimumPushDownCost = 2 * (combinedAabb.Area() - treeNode.Area());
+                typename BoxType::Metric newParentNodeCost = 2.0f * combinedAabb.Area();
+                typename BoxType::Metric minimumPushDownCost = 2.0f * (combinedAabb.Area() - treeNode.Area());
 
                 // use the costs to figure out whether to create a new parent here or descend
                 typename BoxType::Metric costLeft, costRight;
@@ -275,20 +223,65 @@ namespace spt::geo {
         inline std::vector<BoxType> operator&&(const Geometry &g) const {
             return QueryAABBTree(this, g);
         }
+#ifdef SPT_DEBUG
+        void Debug() const {
+        std::stack<unsigned> s;
+        s.push(this->_rootNodeIndex);
+        while (!s.empty()) {
+            unsigned p = s.top();
+            s.pop();
+            if (p == AABB_NULL)
+                continue;
+            const auto &node = _nodes[p];
+            const auto &box = *node;
+            std::cout << (node.IsLeaf() ? "box@" : "node@") << p << " " << box << std::endl;
+            if (!node.IsLeaf()) {
+                s.push(node.left);
+                s.push(node.right);
+            }
+        }
+    }
+#endif
     };
 
     template<typename B>
-    struct AABBTreeRO {
+    class AABBTreeRO {
+    protected:
         typedef AABBTreeNode<B> NodeType;
         typedef B BoxType;
-        const unsigned _rootNodeIndex;
-        const NodeType *const _nodes;
+        struct AABBTreeROHeader {
+            unsigned root = 0;
+            size_t count = 0;
+        };
+        union {
+            unsigned _rootNodeIndex;
+            AABBTreeROHeader header;
+        };
 
-        AABBTreeRO(unsigned root, const void *data) : _rootNodeIndex(root),
-                                                      _nodes(reinterpret_cast<const NodeType *>(data)) {
+        const NodeType *const _nodes;
+        const bool _owndata;
+
+        AABBTreeRO(unsigned root, const void *data, size_t count) :
+                header({root, count}),
+                _nodes(reinterpret_cast<const NodeType *>(data)),
+                _owndata(false) {
         }
 
-        explicit AABBTreeRO(const AABBTree<B> &tree) : AABBTreeRO(tree._rootNodeIndex, tree._nodes.data()) { // NOLINT
+    private:
+        AABBTreeRO(const AABBTreeROHeader &&_header, const void *data) :
+                header(_header),
+                _nodes(reinterpret_cast<const NodeType *>(data)),
+                _owndata(true) {
+        }
+
+    public:
+        explicit AABBTreeRO(const AABBTree<B> &tree) :
+                AABBTreeRO(tree._rootNodeIndex, tree._nodes.data(), tree._allocatedNodeCount) {
+        }
+
+        virtual ~AABBTreeRO() {
+            if (_owndata)
+                delete[] _nodes;
         }
 
         template<typename TreeType, typename Geometry>
@@ -299,12 +292,18 @@ namespace spt::geo {
             return QueryAABBTree(this, g);
         }
 
-        void Save(std::ostream &s) {
-            // TODO impl serialization
+        void Save(std::ostream &s) const {
+            s.write(reinterpret_cast<const char *>(&header), sizeof(header));
+            s.write(reinterpret_cast<const char *>(_nodes), sizeof(NodeType) * header.count);
         }
 
-        void Load(std::istream &s) {
-            // TODO impl deserialization
+        static AABBTreeRO<B> Load(std::istream &s) {
+            typename AABBTreeRO<B>::AABBTreeROHeader header;
+            s.read(reinterpret_cast<char *>(&header), sizeof(header));
+            auto nodes = new NodeType[header.count];
+            std::cout<<"root: "<<header.root<<"  node count: "<<header.count<<std::endl;
+            s.read(reinterpret_cast<char *>(nodes), sizeof(NodeType) * header.count);
+            return AABBTreeRO<B>(std::move(header), nodes);
         }
     };
 
@@ -329,20 +328,4 @@ namespace spt::geo {
         }
         return overlaps;
     }
-
-    typedef Box2D<double> Box2Dd;
-    typedef Box2D<float> Box2Df;
-    typedef Box2D<int> Box2Di;
-    extern template struct Vector2D<double>;
-    extern template struct Vector2D<float>;
-    extern template struct Vector2D<int>;
-    extern template class Box2D<double>;
-    extern template class Box2D<float>;
-    extern template class Box2D<int>;
-    extern template class AABBTree<Box2Dd>;
-    extern template struct AABBTreeRO<Box2Dd>;
-    extern template class AABBTree<Box2Df>;
-    extern template struct AABBTreeRO<Box2Df>;
-    extern template class AABBTree<Box2Di>;
-    extern template struct AABBTreeRO<Box2Di>;
 }
