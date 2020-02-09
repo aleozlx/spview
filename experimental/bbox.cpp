@@ -105,11 +105,13 @@ protected:
     typename BoxType::Metric area = 0;
 };
 
+template<typename B>
+struct AABBTreeRO;
+
 template<typename BoxType>
 class AABBTree {
+    friend struct AABBTreeRO<BoxType>;
 protected:
-    template<typename BoxType> friend
-    struct AABBTreeRO;
     typedef AABBTreeNode<BoxType> NodeType;
     std::vector<NodeType> _nodes;
     unsigned _rootNodeIndex;
@@ -272,7 +274,7 @@ public:
     }
 
     template<typename TreeType, typename Geometry>
-    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g);
+    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g); // NOLINT
 
     template<typename Geometry>
     inline std::vector<BoxType> operator&&(const Geometry &g) const {
@@ -309,11 +311,11 @@ struct AABBTreeRO {
                                                   _nodes(reinterpret_cast<const NodeType *>(data)) {
     }
 
-    explicit AABBTreeRO(const AABBTree<B> &tree) : AABBTreeRO(tree._rootNodeIndex, tree._nodes.data()) {
+    explicit AABBTreeRO(const AABBTree<B> &tree) : AABBTreeRO(tree._rootNodeIndex, tree._nodes.data()) { // NOLINT
     }
 
     template<typename TreeType, typename Geometry>
-    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g);
+    friend std::vector<typename TreeType::BoxType> QueryAABBTree(const TreeType *tree, const Geometry &g); // NOLINT
 
     template<typename Geometry>
     inline std::vector<B> operator&&(const Geometry &g) const {
