@@ -298,6 +298,14 @@ namespace spt::geo {
         inline std::vector<B> operator&&(const Geometry &g) const {
             return QueryAABBTree(this, g);
         }
+
+        void Save(std::ostream &s) {
+            // TODO impl serialization
+        }
+
+        void Load(std::istream &s) {
+            // TODO impl deserialization
+        }
     };
 
     template<typename TreeType, typename Geometry>
@@ -325,4 +333,16 @@ namespace spt::geo {
     typedef Box2D<double> Box2Dd;
     typedef Box2D<float> Box2Df;
     typedef Box2D<int> Box2Di;
+    extern template struct Vector2D<double>;
+    extern template struct Vector2D<float>;
+    extern template struct Vector2D<int>;
+    extern template class Box2D<double>;
+    extern template class Box2D<float>;
+    extern template class Box2D<int>;
+    extern template class AABBTree<Box2Dd>;
+    extern template struct AABBTreeRO<Box2Dd>;
+    extern template class AABBTree<Box2Df>;
+    extern template struct AABBTreeRO<Box2Df>;
+    extern template class AABBTree<Box2Di>;
+    extern template struct AABBTreeRO<Box2Di>;
 }

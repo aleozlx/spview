@@ -321,6 +321,14 @@ struct AABBTreeRO {
     inline std::vector<B> operator&&(const Geometry &g) const {
         return QueryAABBTree(this, g);
     }
+
+    void Save(std::ostream &s) {
+        // TODO impl serialization
+    }
+
+    void Load(std::istream &s) {
+        // TODO impl deserialization
+    }
 };
 
 template<typename TreeType, typename Geometry>
