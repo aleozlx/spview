@@ -1,10 +1,14 @@
 #include <iostream>
-#include <memory>
 #include <vector>
 #include <stack>
 #include <map>
 #include <algorithm>
 #include <cassert>
+
+template<typename T>
+struct Vector2D {
+    T x = 0, y = 0;
+};
 
 template<typename T>
 class Box2D {
@@ -14,15 +18,6 @@ public:
     typedef T Metric;
 
     T xmin = 0, ymin = 0, xmax = 0, ymax = 0;
-
-    Box2D() = default;
-
-    Box2D(T _xmin, T _ymin, T _xmax, T _ymax) {
-        xmin = _xmin;
-        ymin = _ymin;
-        xmax = _xmax;
-        ymax = _ymax;
-    }
 
     inline T Area() const {
         return Width() * Height();
@@ -36,90 +31,81 @@ public:
         return ymax - ymin;
     }
 
-    bool overlaps(const Self &other) const {
+    bool operator&&(const Self &other) const {
         return xmax > other.xmin &&
                xmin < other.xmax &&
                ymax > other.ymin &&
                ymin < other.ymax;
     }
 
-    bool contains(const Self &other) const {
-        return other.xmin >= xmin &&
-               other.xmax <= xmax &&
-               other.ymin >= ymin &&
-               other.ymax <= ymax;
+    bool operator&&(const Vector2D<T> &p) const {
+        return xmax >= p.x &&
+               xmin <= p.x &&
+               ymax >= p.y &&
+               ymin <= p.y;
     }
 
     Self operator+(const Self &other) const {
-        return Self(
+        return {
                 std::min(xmin, other.xmin), std::min(ymin, other.ymin),
                 std::max(xmax, other.xmax), std::max(ymax, other.ymax)
-        );
+        };
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Self &box) {
         os << box.xmin << " " << box.ymin << " " << box.xmax << " " << box.ymax;
         return os;
     }
-
-    Self intersection(const Self &other) const {
-        return Self(
-                std::max(xmin, other.xmin), std::max(ymin, other.ymin),
-                std::min(xmax, other.xmax), std::min(ymax, other.ymax)
-        );
-    }
 };
 
 const unsigned AABB_NULL = 0xffffffff;
 
-template<typename B>
-class AABBTreeNode {
-public:
-    typedef B BoxType;
-    unsigned parent = AABB_NULL,
-            left = AABB_NULL,
-            right = AABB_NULL,
-            next = AABB_NULL;
-
-    AABBTreeNode() = default;
-
-    AABBTreeNode(const B &box) { // NOLINT
-        SetBox(box);
-    }
-
-    bool IsLeaf() const {
-        return left == AABB_NULL;
-    }
-
-    void AssignBox(const AABBTreeNode<B> &_node) {
-        SetBox(_node.box);
-    }
-
-    void SetBox(const B &_box) {
-        this->box = _box;
-        this->area = box.Area();
-    }
-
-    inline const B &GetBox() const {
-        return box;
-    }
-
-    inline typename BoxType::Metric Area() const {
-        return area;
-    }
-
-    inline const B &operator*() const {
-        return box;
-    }
-
-protected:
-    BoxType box;
-    typename BoxType::Metric area = 0;
-};
-
-template<typename NodeType>
+template<typename BoxType>
 class AABBTree {
 protected:
+    class NodeType {
+    public:
+        unsigned parent = AABB_NULL,
+                left = AABB_NULL,
+                right = AABB_NULL,
+                next = AABB_NULL;
+
+        NodeType() = default;
+
+        NodeType(const BoxType &box) { // NOLINT
+            SetBox(box);
+        }
+
+        bool IsLeaf() const {
+            return left == AABB_NULL;
+        }
+
+        void AssignBox(const NodeType &_node) {
+            SetBox(_node.box);
+        }
+
+        void SetBox(const BoxType &_box) {
+            this->box = _box;
+            this->area = box.Area();
+        }
+
+        inline const BoxType &GetBox() const {
+            return box;
+        }
+
+        inline typename BoxType::Metric Area() const {
+            return area;
+        }
+
+        inline const BoxType &operator*() const {
+            return box;
+        }
+
+    protected:
+        BoxType box;
+        typename BoxType::Metric area = 0;
+    };
+
     std::vector<NodeType> _nodes;
     unsigned _rootNodeIndex;
     unsigned _allocatedNodeCount;
@@ -150,14 +136,6 @@ protected:
         return nodeIndex;
     }
 
-
-    void deallocateNode(unsigned nodeIndex) {
-        AABBNode &deallocatedNode = _nodes[nodeIndex];
-        deallocatedNode.next = _nextFreeNodeIndex;
-        _nextFreeNodeIndex = nodeIndex;
-        _allocatedNodeCount--;
-    }
-
     void insertLeaf(unsigned leafNodeIndex) {
         // make sure we're inserting a new leaf
         assert(_nodes[leafNodeIndex].parent == AABB_NULL);
@@ -184,22 +162,21 @@ protected:
 
             auto combinedAabb = *treeNode + **leafNode;
 
-            float newParentNodeCost = 2.0f * combinedAabb.Area();
-            float minimumPushDownCost = 2.0f * (combinedAabb.Area() - treeNode.Area());
+            typename BoxType::Metric newParentNodeCost = 2.0f * combinedAabb.Area();
+            typename BoxType::Metric minimumPushDownCost = 2.0f * (combinedAabb.Area() - treeNode.Area());
 
             // use the costs to figure out whether to create a new parent here or descend
-            float costLeft;
-            float costRight;
+            typename BoxType::Metric costLeft, costRight;
             if (leftNode.IsLeaf())
                 costLeft = (**leafNode + *leftNode).Area() + minimumPushDownCost;
             else {
-                typename NodeType::BoxType newLeftAabb = **leafNode + *leftNode;
+                BoxType newLeftAabb = **leafNode + *leftNode;
                 costLeft = (newLeftAabb.Area() - leftNode.Area()) + minimumPushDownCost;
             }
             if (rightNode.IsLeaf())
                 costRight = (**leafNode + *rightNode).Area() + minimumPushDownCost;
             else {
-                typename NodeType::BoxType newRightAabb = **leafNode + *rightNode;
+                BoxType newRightAabb = **leafNode + *rightNode;
                 costRight = (newRightAabb.Area() - rightNode.Area()) + minimumPushDownCost;
             }
 
@@ -249,47 +226,6 @@ protected:
         fixUpwardsTree(treeNodeIndex);
     }
 
-    void removeLeaf(unsigned leafNodeIndex) {
-        // if the leaf is the root then we can just clear the root pointer and return
-        if (leafNodeIndex == _rootNodeIndex) {
-            _rootNodeIndex = AABB_NULL;
-            return;
-        }
-
-        AABBNode &leafNode = _nodes[leafNodeIndex];
-        unsigned parent = leafNode.parent;
-        const AABBNode &parentNode = _nodes[parent];
-        unsigned grandParentNodeIndex = parentNode.parent;
-        unsigned siblingNodeIndex =
-                parentNode.left == leafNodeIndex ? parentNode.right : parentNode.left;
-        assert(siblingNodeIndex != AABB_NULL); // we must have a sibling
-        AABBNode &siblingNode = _nodes[siblingNodeIndex];
-
-        if (grandParentNodeIndex != AABB_NULL) {
-            // if we have a grand parent (i.e. the parent is not the root) then destroy the parent and connect the sibling to the grandparent in its
-            // place
-            AABBNode &grandParentNode = _nodes[grandParentNodeIndex];
-            if (grandParentNode.left == parent) {
-                grandParentNode.left = siblingNodeIndex;
-            } else {
-                grandParentNode.right = siblingNodeIndex;
-            }
-            siblingNode.parent = grandParentNodeIndex;
-            deallocateNode(parent);
-
-            fixUpwardsTree(grandParentNodeIndex);
-        } else {
-            // if we have no grandparent then the parent is the root and so our sibling becomes the root and has it's parent removed
-            _rootNodeIndex = siblingNodeIndex;
-            siblingNode.parent = AABB_NULL;
-            deallocateNode(parent);
-        }
-
-        leafNode.parent = AABB_NULL;
-    }
-
-//    void updateLeaf(unsigned leafNodeIndex, const AABB &newAaab);
-
     void fixUpwardsTree(unsigned treeNodeIndex) {
         while (treeNodeIndex != AABB_NULL) {
             NodeType &treeNode = _nodes[treeNodeIndex];
@@ -318,24 +254,15 @@ public:
         _nodes[initialSize - 1].next = AABB_NULL;
     }
 
-    ~AABBTree() =
-    default;
-
-    void Insert(const std::shared_ptr<NodeType> &node) {
+    void Insert(const BoxType &box) {
         unsigned nodeIndex = allocateNode();
-        _nodes[nodeIndex].AssignBox(*node);
+        _nodes[nodeIndex].SetBox(box);
         insertLeaf(nodeIndex);
     }
 
-    void Remove(const std::shared_ptr<NodeType> &node) {
-        unsigned nodeIndex = _objectNodeIndexMap[object];
-        removeLeaf(nodeIndex);
-        deallocateNode(nodeIndex);
-        _objectNodeIndexMap.erase(object);
-    }
-
-    std::vector<typename NodeType::BoxType> queryOverlaps(const typename NodeType::BoxType &b) const {
-        std::vector<typename NodeType::BoxType> overlaps;
+    template<typename Geometry>
+    std::vector<BoxType> operator&&(const Geometry &g) const {
+        std::vector<BoxType> overlaps;
         std::stack<unsigned> stack;
         stack.push(_rootNodeIndex);
         while (!stack.empty()) {
@@ -343,7 +270,7 @@ public:
             stack.pop();
             if (nodeIndex == AABB_NULL) continue;
             const auto &node = _nodes[nodeIndex];
-            if (node.GetBox().overlaps(b)) {
+            if (node.GetBox() && g) {
                 if (node.IsLeaf())
                     overlaps.push_back(*node);
                 else {
@@ -352,7 +279,6 @@ public:
                 }
             }
         }
-
         return overlaps;
     }
 
@@ -384,16 +310,24 @@ int main(int, char **) {
             {25, 35, 40, 55}
     };
 
-    AABBTree<AABBTreeNode<Box2Df>> t;
+    AABBTree<Box2Df> t;
     for (const auto &b : aabb) {
-        t.Insert(std::make_shared<AABBTreeNode<Box2Df>>(b));
+        t.Insert(b);
         t.Debug();
         std::cout << "======" << std::endl;
     }
 
     Box2Df z = {5, 5, 10, 20};
-    auto x = t.queryOverlaps(z);
-    for (const auto &b:x) {
-        std::cout<<"box "<<b<<std::endl;
+    auto x1 = t && z;
+    for (const auto &b: x1) {
+        std::cout << "box " << b << std::endl;
+        std::cout << "======" << std::endl;
+    }
+
+    Vector2D<float> v = {6, 6};
+    auto x2 = t && v;
+    for (const auto &b: x2) {
+        std::cout << "box " << b << std::endl;
+        std::cout << "======" << std::endl;
     }
 }
