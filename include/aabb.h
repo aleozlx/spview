@@ -6,16 +6,15 @@
 #include <cassert>
 #include <limits>
 
-#define AABB_NULL (UINT_MAX)
-
 namespace spt::geo {
     template<typename BoxType>
     class AABBTreeNode {
     public:
-        unsigned parent = AABB_NULL,
-                left = AABB_NULL,
-                right = AABB_NULL,
-                next = AABB_NULL;
+        static const unsigned NIL = UINT_MAX;
+        unsigned parent = NIL,
+                left = NIL,
+                right = NIL,
+                next = NIL;
 
         AABBTreeNode() = default;
 
@@ -24,7 +23,7 @@ namespace spt::geo {
         }
 
         bool IsLeaf() const {
-            return left == AABB_NULL;
+            return left == NIL;
         }
 
         void AssignBox(const AABBTreeNode<BoxType> &_node) {
@@ -70,7 +69,7 @@ namespace spt::geo {
 
         unsigned allocateNode() {
             // if we have no free tree nodes then grow the pool
-            if (_nextFreeNodeIndex == AABB_NULL) {
+            if (_nextFreeNodeIndex == NodeType::NIL) {
                 assert(_allocatedNodeCount == _nodeCapacity);
                 _nodeCapacity += _nodeCapacity < 3 ? 1 : _nodeCapacity / 3;
                 _nodes.resize(_nodeCapacity);
@@ -78,15 +77,15 @@ namespace spt::geo {
                     NodeType &node = _nodes[nodeIndex];
                     node.next = nodeIndex + 1;
                 }
-                _nodes[_nodeCapacity - 1].next = AABB_NULL;
+                _nodes[_nodeCapacity - 1].next = NodeType::NIL;
                 _nextFreeNodeIndex = _allocatedNodeCount;
             }
 
             unsigned nodeIndex = _nextFreeNodeIndex;
             NodeType &allocatedNode = _nodes[nodeIndex];
-            allocatedNode.parent = AABB_NULL;
-            allocatedNode.left = AABB_NULL;
-            allocatedNode.right = AABB_NULL;
+            allocatedNode.parent = NodeType::NIL;
+            allocatedNode.left = NodeType::NIL;
+            allocatedNode.right = NodeType::NIL;
             _nextFreeNodeIndex = allocatedNode.next;
             _allocatedNodeCount++;
             return nodeIndex;
@@ -94,12 +93,12 @@ namespace spt::geo {
 
         void insertLeaf(unsigned leafNodeIndex) {
             // make sure we're inserting a new leaf
-            assert(_nodes[leafNodeIndex].parent == AABB_NULL);
-            assert(_nodes[leafNodeIndex].left == AABB_NULL);
-            assert(_nodes[leafNodeIndex].right == AABB_NULL);
+            assert(_nodes[leafNodeIndex].parent == NodeType::NIL);
+            assert(_nodes[leafNodeIndex].left == NodeType::NIL);
+            assert(_nodes[leafNodeIndex].right == NodeType::NIL);
 
             // if the tree is empty then we make the root the leaf
-            if (_rootNodeIndex == AABB_NULL) {
+            if (_rootNodeIndex == NodeType::NIL) {
                 _rootNodeIndex = leafNodeIndex;
                 return;
             }
@@ -126,13 +125,13 @@ namespace spt::geo {
                 if (leftNode.IsLeaf())
                     costLeft = (**leafNode + *leftNode).Area() + minimumPushDownCost;
                 else {
-                    BoxType newLeftAabb = **leafNode + *leftNode;
+                    auto newLeftAabb = **leafNode + *leftNode;
                     costLeft = (newLeftAabb.Area() - leftNode.Area()) + minimumPushDownCost;
                 }
                 if (rightNode.IsLeaf())
                     costRight = (**leafNode + *rightNode).Area() + minimumPushDownCost;
                 else {
-                    BoxType newRightAabb = **leafNode + *rightNode;
+                    auto newRightAabb = **leafNode + *rightNode;
                     costRight = (newRightAabb.Area() - rightNode.Area()) + minimumPushDownCost;
                 }
 
@@ -158,13 +157,13 @@ namespace spt::geo {
             unsigned oldParentIndex = leafSibling.parent;
             NodeType &newParent = _nodes[newParentIndex];
             newParent.parent = oldParentIndex;
-            newParent.AssignBox(**leafNode + *leafSibling);
+            newParent.SetBox(**leafNode + *leafSibling);
             newParent.left = leafSiblingIndex;
             newParent.right = leafNodeIndex;
             leafNode->parent = newParentIndex;
             leafSibling.parent = newParentIndex;
 
-            if (oldParentIndex == AABB_NULL) {
+            if (oldParentIndex == NodeType::NIL) {
                 // the old parent was the root and so this is now the root
                 _rootNodeIndex = newParentIndex;
             } else {
@@ -183,16 +182,16 @@ namespace spt::geo {
         }
 
         void fixUpwardsTree(unsigned treeNodeIndex) {
-            while (treeNodeIndex != AABB_NULL) {
+            while (treeNodeIndex != NodeType::NIL) {
                 NodeType &treeNode = _nodes[treeNodeIndex];
 
                 // every node should be a parent
-                assert(treeNode.left != AABB_NULL && treeNode.right != AABB_NULL);
+                assert(treeNode.left != NodeType::NIL && treeNode.right != NodeType::NIL);
 
                 // fix height and area
                 const NodeType &leftNode = _nodes[treeNode.left];
                 const NodeType &rightNode = _nodes[treeNode.right];
-                treeNode.AssignBox(*leftNode + *rightNode);
+                treeNode.SetBox(*leftNode + *rightNode);
 
                 treeNodeIndex = treeNode.parent;
             }
@@ -201,7 +200,7 @@ namespace spt::geo {
     public:
         typedef BoxType BoxType;
 
-        explicit AABBTree(unsigned initialSize = 1) : _rootNodeIndex(AABB_NULL), _allocatedNodeCount(0),
+        explicit AABBTree(unsigned initialSize = 1) : _rootNodeIndex(NodeType::NIL), _allocatedNodeCount(0),
                                                       _nextFreeNodeIndex(0), _nodeCapacity(initialSize) {
             if (initialSize == 0) initialSize = 1;
             _nodes.resize(initialSize);
@@ -209,7 +208,7 @@ namespace spt::geo {
                 NodeType &node = _nodes[nodeIndex];
                 node.next = nodeIndex + 1;
             }
-            _nodes[initialSize - 1].next = AABB_NULL;
+            _nodes[initialSize - 1].next = NodeType::NIL;
         }
 
         inline size_t Count() {
@@ -236,7 +235,7 @@ namespace spt::geo {
         while (!s.empty()) {
             unsigned p = s.top();
             s.pop();
-            if (p == AABB_NULL)
+            if (p == NodeType::NIL)
                 continue;
             const auto &node = _nodes[p];
             const auto &box = *node;
@@ -321,7 +320,7 @@ namespace spt::geo {
         while (!stack.empty()) {
             unsigned nodeIndex = stack.top();
             stack.pop();
-            if (nodeIndex == AABB_NULL) continue;
+            if (nodeIndex == typename TreeType::NodeType::NIL) continue;
             const auto &node = tree->_nodes[nodeIndex];
             if (node.GetBox() && g) {
                 if (node.IsLeaf())
