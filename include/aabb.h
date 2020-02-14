@@ -1,4 +1,5 @@
 #pragma once
+
 #include <iostream>
 #include <vector>
 #include <stack>
@@ -66,12 +67,21 @@ namespace spt::geo {
         unsigned allocatedNodeCount;
         unsigned nextFreeNodeIndex;
         unsigned nodeCapacity;
+        enum {
+            Conservative, Aggressive
+        } resizeStrategy;
 
         unsigned allocateNode() {
-            // if we have no free tree nodes then grow the pool
             if (nextFreeNodeIndex == NodeType::NIL) {
                 assert(allocatedNodeCount == nodeCapacity);
-                nodeCapacity += nodeCapacity < 3 ? 1 : nodeCapacity / 3;
+                switch (resizeStrategy) {
+                    case Conservative:
+                        nodeCapacity += std::max(nodeCapacity / 3, 2u);
+                        break;
+                    case Aggressive:
+                        nodeCapacity <<= 1;
+                        break;
+                }
                 nodes.resize(nodeCapacity);
                 for (unsigned nodeIndex = allocatedNodeCount; nodeIndex < nodeCapacity; nodeIndex++) {
                     NodeType &node = nodes[nodeIndex];
@@ -104,52 +114,36 @@ namespace spt::geo {
             }
 
             // search for the best place to put the new leaf in the tree
-            // we use surface area and depth as search heuristics
             unsigned treeNodeIndex = root;
             NodeType *leafNode = &nodes[leafNodeIndex];
+            auto areaCache = (*nodes[treeNodeIndex] + **leafNode).Area();
             while (!nodes[treeNodeIndex].IsLeaf()) {
-                // because of the test in the while loop above we know we are never a leaf inside it
                 const NodeType &treeNode = nodes[treeNodeIndex];
-                unsigned left = treeNode.left;
-                unsigned right = treeNode.right;
-                const NodeType &leftNode = nodes[left];
-                const NodeType &rightNode = nodes[right];
+                const NodeType &leftNode = nodes[treeNode.left];
+                const NodeType &rightNode = nodes[treeNode.right];
 
-                auto combinedAabb = *treeNode + **leafNode;
+                auto newParentCost = 2 * areaCache,
+                        minPushDownCost = newParentCost - 2 * treeNode.Area(),
+                        area_l = (**leafNode + *leftNode).Area(),
+                        area_r = (**leafNode + *rightNode).Area();
+                auto cost_l = (leftNode.IsLeaf() ? area_l : area_l - leftNode.Area()) + minPushDownCost,
+                        cost_r = (rightNode.IsLeaf() ? area_r : area_r - rightNode.Area()) + minPushDownCost;
 
-                typename BoxType::Metric newParentNodeCost = 2.0f * combinedAabb.Area();
-                typename BoxType::Metric minimumPushDownCost = 2.0f * (combinedAabb.Area() - treeNode.Area());
-
-                // use the costs to figure out whether to create a new parent here or descend
-                typename BoxType::Metric costLeft, costRight;
-                if (leftNode.IsLeaf())
-                    costLeft = (**leafNode + *leftNode).Area() + minimumPushDownCost;
-                else {
-                    auto newLeftAabb = **leafNode + *leftNode;
-                    costLeft = (newLeftAabb.Area() - leftNode.Area()) + minimumPushDownCost;
-                }
-                if (rightNode.IsLeaf())
-                    costRight = (**leafNode + *rightNode).Area() + minimumPushDownCost;
-                else {
-                    auto newRightAabb = **leafNode + *rightNode;
-                    costRight = (newRightAabb.Area() - rightNode.Area()) + minimumPushDownCost;
-                }
-
-                // if the cost of creating a new parent node here is less than descending in either direction then
-                // we know we need to create a new parent node, errrr, here and attach the leaf to that
-                if (newParentNodeCost < costLeft && newParentNodeCost < costRight)
+                // create new parent here?
+                if (newParentCost < cost_l && newParentCost < cost_r)
                     break;
-
-                // otherwise descend in the cheapest direction
-                if (costLeft < costRight)
-                    treeNodeIndex = left;
-                else
-                    treeNodeIndex = right;
+                // descend
+                if (cost_l < cost_r) {
+                    treeNodeIndex = treeNode.left;
+                    areaCache = area_l;
+                } else {
+                    treeNodeIndex = treeNode.right;
+                    areaCache = area_r;
+                }
 
             }
 
-            // the leafs sibling is going to be the node we found above and we are going to create a new
-            // parent node and attach the leaf and this item
+            // create a new parent node and attach the leaf and this item
             unsigned leafSiblingIndex = treeNodeIndex;
             unsigned newParentIndex = allocateNode();
             leafNode = &nodes[leafNodeIndex]; // update the ptr after potential reallocation
@@ -163,10 +157,9 @@ namespace spt::geo {
             leafNode->parent = newParentIndex;
             leafSibling.parent = newParentIndex;
 
-            if (oldParentIndex == NodeType::NIL) {
-                // the old parent was the root and so this is now the root
+            if (oldParentIndex == NodeType::NIL)
                 root = newParentIndex;
-            } else {
+            else {
                 // the old parent was not the root and so we need to patch the left or right index to
                 // point to the new node
                 NodeType &oldParent = nodes[oldParentIndex];
@@ -176,7 +169,7 @@ namespace spt::geo {
                     oldParent.right = newParentIndex;
             }
 
-            // finally we need to walk back up the tree fixing heights and areas
+            // walk back up & fix heights and areas
             treeNodeIndex = leafNode->parent;
             fixUpwardsTree(treeNodeIndex);
         }
@@ -203,16 +196,13 @@ namespace spt::geo {
         explicit AABBTree(unsigned initialSize = 1) : root(NodeType::NIL), allocatedNodeCount(0),
                                                       nextFreeNodeIndex(0), nodeCapacity(initialSize) {
             if (initialSize == 0) initialSize = 1;
+            resizeStrategy = initialSize < 7 ? Aggressive : Conservative;
             nodes.resize(initialSize);
             for (unsigned nodeIndex = 0; nodeIndex < initialSize; nodeIndex++) {
                 NodeType &node = nodes[nodeIndex];
                 node.next = nodeIndex + 1;
             }
             nodes[initialSize - 1].next = NodeType::NIL;
-        }
-
-        inline size_t Count() {
-            return allocatedNodeCount;
         }
 
         void Insert(const BoxType &box) {
@@ -228,24 +218,27 @@ namespace spt::geo {
         inline std::vector<BoxType> operator&&(const Geometry &g) const {
             return QueryAABBTree(this, g);
         }
+
 #ifdef SPT_DEBUG
+
         void Debug() const {
-        std::stack<unsigned> s;
-        s.push(this->root);
-        while (!s.empty()) {
-            unsigned p = s.top();
-            s.pop();
-            if (p == NodeType::NIL)
-                continue;
-            const auto &node = nodes[p];
-            const auto &box = *node;
-            std::cout << (node.IsLeaf() ? "box@" : "node@") << p << " " << box << std::endl;
-            if (!node.IsLeaf()) {
-                s.push(node.left);
-                s.push(node.right);
+            std::stack<unsigned> s;
+            s.push(this->root);
+            while (!s.empty()) {
+                unsigned p = s.top();
+                s.pop();
+                if (p == NodeType::NIL)
+                    continue;
+                const auto &node = nodes[p];
+                const auto &box = *node;
+                std::cout << (node.IsLeaf() ? "box@" : "node@") << p << " " << box << std::endl;
+                if (!node.IsLeaf()) {
+                    s.push(node.left);
+                    s.push(node.right);
+                }
             }
         }
-    }
+
 #endif
     };
 
@@ -309,7 +302,7 @@ namespace spt::geo {
             typename AABBTreeRO<B>::AABBTreeROHeader header;
             s.read(reinterpret_cast<char *>(&header), sizeof(header));
             auto nodes = new NodeType[header.count];
-            std::cout<<"root: "<<header.root<<"  node count: "<<header.count<<std::endl;
+            std::cout << "root: " << header.root << "  node count: " << header.count << std::endl;
             s.read(reinterpret_cast<char *>(nodes), sizeof(NodeType) * header.count);
             return AABBTreeRO<B>(std::move(header), nodes, true);
         }
