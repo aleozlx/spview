@@ -259,15 +259,15 @@ namespace spt::geo {
         typedef AABBTreeNode<B> NodeType;
         typedef B BoxType;
         union { // NOLINT
-            unsigned root;
+            unsigned root; // alias root=header.root
             AABBTreeROHeader header;
         };
 
-        const NodeType *const nodes;
-        const bool ownData;
+        const NodeType *nodes;
+        bool ownData;
 
     private:
-        AABBTreeRO(const AABBTreeROHeader &&_header, const void *data, bool _ownData = true) :
+        AABBTreeRO(const AABBTreeROHeader &&_header, const void *data, bool _ownData = false) :
                 header(_header),
                 nodes(reinterpret_cast<const NodeType *>(data)),
                 ownData(_ownData) {
@@ -275,15 +275,15 @@ namespace spt::geo {
 
     public:
         explicit AABBTreeRO(const AABBTree<B> &tree) :
-                AABBTreeRO(AABBTreeROHeader{tree.root, tree.allocatedNodeCount}, tree.nodes.data(), false) {
+                AABBTreeRO(AABBTreeROHeader{tree.root, tree.allocatedNodeCount}, tree.nodes.data()) {
         }
 
         AABBTreeRO(const AABBTreeRO<B> &tree) :
-                AABBTreeRO(AABBTreeROHeader{tree.root, tree._allocatedNodeCount}, tree.nodes.data(), false) {
+                AABBTreeRO(AABBTreeROHeader(tree.header), tree.nodes) {
         }
 
-        AABBTreeRO(const AABBTreeRO<B> &&tree) noexcept :
-                AABBTreeRO(AABBTreeROHeader{tree.root, tree._allocatedNodeCount}, tree.nodes.data(), tree.ownData) {
+        AABBTreeRO(AABBTreeRO<B> &&tree) noexcept :
+                AABBTreeRO(std::move(tree.header), tree.nodes, tree.ownData) {
             tree.ownData = false;
         }
 
@@ -311,7 +311,7 @@ namespace spt::geo {
             auto nodes = new NodeType[header.count];
             std::cout<<"root: "<<header.root<<"  node count: "<<header.count<<std::endl;
             s.read(reinterpret_cast<char *>(nodes), sizeof(NodeType) * header.count);
-            return AABBTreeRO<B>(std::move(header), nodes);
+            return AABBTreeRO<B>(std::move(header), nodes, true);
         }
     };
 
