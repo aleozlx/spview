@@ -6,47 +6,19 @@
 template<typename T>
 struct SOMNetwork {
     size_t units, dims;
-    T *weights = nullptr; // W
-    bool *connections = nullptr; // C
-    unsigned *conn_ages = nullptr; // T
-    T *errors = nullptr; // E
+	thrust::device_vector<T> weights;
+	thrust::device_vector<bool> connections;
+	thrust::device_vector<unsigned> conn_ages;
+	thrust::device_vector<T> errors;
+
+    SOMNetwork(size_t units, size_t dims):
+        weights(units*dims),
+        connections(units*units),
+        conn_ages(units*units),
+        errors(units) {
+
+    }
 };
-
-template<typename T>
-void AllocCPU(SOMNetwork<T> &network, size_t units, size_t dims) {
-    network.units = units;
-    network.dims = dims;
-    network.weights = new T[units * dims];
-    network.connections = new bool[units * units];
-    network.conn_ages = new unsigned[units * units];
-    network.errors = new T[units];
-}
-
-template<typename T>
-void AllocGPU(SOMNetwork<T> &network, size_t units, size_t dims) {
-	network.units = units;
-	network.dims = dims;
-	cudaMallocManaged(&network.weights, units*dims * sizeof(T));
-	cudaMallocManaged(&network.connections,units * units*sizeof(bool));
-	cudaMallocManaged(&network.conn_ages,units * units*sizeof(unsigned));
-	cudaMallocManaged(&network.errors,units*sizeof(T));
-}
-
-template<typename T>
-void DeallocCPU(SOMNetwork<T> &network) {
-    delete[] network.weights;
-    delete[] network.connections;
-    delete[] network.conn_ages;
-    delete[] network.errors;
-}
-
-template<typename T>
-void DeallocGPU(SOMNetwork<T> &network) {
-	cudaFree(network.weights);
-	cudaFree(network.connections);
-	cudaFree(network.conn_ages);
-	cudaFree(network.errors);
-}
 
 template<typename T>
 void InitUnified(SOMNetwork<T> &network, const size_t units, const size_t dims) {
@@ -54,30 +26,18 @@ void InitUnified(SOMNetwork<T> &network, const size_t units, const size_t dims) 
 	std::random_device dev;
 	std::mt19937 rng(dev());
 	std::uniform_real_distribution<T> dist(-2, 2);
+	thrust::host_vector<T> weights(units*dims);
+    thrust::host_vector<T> connections(units*units);
 	for (int i = 0; i < units * dims; ++i)
-		network.weights[i] = dist(rng);
+		weights[i] = dist(rng);
 	for (int i = 0; i < units; ++i)
 		for (int j = 0; j < units; ++j)
-			network.connections[i * units + j] = i != j;
-	for (int i = 0; i < units * units; ++i)
-		network.conn_ages = 0;
-	for (int i = 0; i < units; ++i)
-		network.errors = 0;
+			connections[i * units + j] = i != j;
+    network.weights = weights;
+    network.connections = connections;
+    thrust::fill(network.conn_ages.begin(), network.conn_ages.end(), 0);
+    thrust::fill(network.errors.begin(), network.errors.end(), 0);
 }
-
-template<typename T>
-void InitCPU(SOMNetwork<T> &network, const size_t units, const size_t dims) {
-    AllocCPU(network, units, dims);
-	InitUnified(network, units, dims);
-}
-
-template<typename T>
-void InitGPU(SOMNetwork<T> &network, const size_t units, const size_t dims) {
-	AllocGPU(network, units, dims);
-	InitUnified(network, units, dims);
-}
-
-enum Device { CPU = 1, GPU = 2 };
 
 template<typename T>
 class SOMBase {
@@ -85,21 +45,15 @@ protected:
     const T *data;
     const size_t samples, dims, units;
     SOMNetwork<T> network;
-	const Device device;
+//	const Device device;
 public:
-    SOMBase(const T *input_data, size_t samples, size_t dims, size_t units, Device dev=GPU) :
-            data(input_data), samples(samples), dims(dims), units(units), device(dev) {
-		switch (device) {
-		case CPU: InitCPU(network, units, dims); break;
-		case GPU: InitGPU(network, units, dims); break;
-		}
+    SOMBase(const T *input_data, size_t samples, size_t dims, size_t units) :
+            data(input_data), samples(samples), dims(dims), units(units), network(units, dims) {
+        InitUnified(network, units, dims);
     }
 
     virtual ~SOMBase() {
-		switch (device) {
-		case CPU: DeallocCPU(network); break;
-		case GPU: DeallocGPU(network); break;
-		}
+
     }
 
     void UpdateClusters(unsigned outlier_tolerance = 1) {
@@ -110,8 +64,8 @@ public:
 template<typename T>
 class GrowingNeuralGas : public SOMBase<T> {
 public:
-    GrowingNeuralGas(const T *input_data, size_t samples, size_t dims, size_t units, Device dev = GPU):
-        SOMBase(input_data, samples, dims, units, dev) {
+    GrowingNeuralGas(const T *input_data, size_t samples, size_t dims, size_t units):
+        SOMBase(input_data, samples, dims, units) {
 
     }
 
