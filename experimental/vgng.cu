@@ -1,18 +1,43 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <cmath>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 
+#include <thrust/device_malloc_allocator.h>
+#include <thrust/system_error.h>
+#include <thrust/system/cuda/error.h>
+
+template<class T>
+class managed_allocator : public thrust::device_malloc_allocator<T> {
+public:
+    using value_type = T;
+    typedef thrust::device_ptr<T>  pointer;
+    inline pointer allocate(size_t n) {
+        value_type* result = nullptr;
+        cudaError_t error = cudaMallocManaged(&result, n*sizeof(T), cudaMemAttachGlobal);
+        if(error != cudaSuccess)
+            throw thrust::system_error(error, thrust::cuda_category(), "managed_allocator::allocate(): cudaMallocManaged");
+        return thrust::device_pointer_cast(result);
+    }
+
+    inline void deallocate(pointer ptr, size_t){
+        cudaError_t error = cudaFree(thrust::raw_pointer_cast(ptr));
+        if(error != cudaSuccess)
+            throw thrust::system_error(error, thrust::cuda_category(), "managed_allocator::deallocate(): cudaFree");
+    }
+};
+
 template<typename T>
 struct SOMNetwork {
     const size_t units, dims;
-    thrust::device_vector <T> weights; // W
-    thrust::device_vector<bool> connections; // C
-    thrust::device_vector<unsigned> conn_ages; // T
-    thrust::device_vector <T> errors; // E
+    thrust::device_vector<T, managed_allocator<T>> weights; // W
+    thrust::device_vector<bool, managed_allocator<T>> connections; // C
+    thrust::device_vector<unsigned, managed_allocator<T>> conn_ages; // T
+    thrust::device_vector<T, managed_allocator<T>> errors; // E
 
     SOMNetwork(size_t units, size_t dims) :
 		    units(units),
@@ -90,27 +115,56 @@ public:
             std::cout << "    Pass #" << (p + 1) << std::endl;
             std::random_shuffle(input_data.begin(), input_data.end());
             unsigned steps = 0;
-            thrust::device_vector<T> unit_dist(network.dims);
-            thrust::device_vector<T> prototype_ranking(network.units);
+            thrust::device_vector <T> unit_dist(network.dims);
+            thrust::device_vector <T> prototype_ranking(network.units);
             for (auto const &o: input_data) {
-                thrust::device_vector<T> observation(o);
-                // find the nearest and the second nearest unit
-                for(int i=0;i<network.units;++i) {
-                    thrust::transform(
-                            observation.begin(),
-                            observation.end(),
-                            network.weights.begin()+i*network.dims,
-                            unit_dist.begin(),
-                            DistFunc<T>());
-                    prototype_ranking[i] = std::sqrt(thrust::reduce(unit_dist.begin(), unit_dist.end(), 0, thrust::plus<T>()));
-                }
-//                ranked_indices = np.argsort(np.linalg.norm(W-observation[np.newaxis, ...], ord = 2, axis = 1))
-//                i0 = ranked_indices[0]
-//                i1 = ranked_indices[1]
-
+                if (network.dims > 7) UpdateGPU(o, unit_dist, prototype_ranking);
+                else UpdateCPU(o);
                 steps += 1;
             }
         }
+    }
+
+protected:
+    template<typename P>
+    void UpdateGPU(const P &o, thrust::device_vector <T> &unit_dist, thrust::device_vector <T> &prototype_ranking) {
+        thrust::device_vector <T> observation(o);
+        // find the nearest and the second nearest unit
+        for (int i = 0; i < network.units; ++i) {
+            thrust::transform(
+                    observation.begin(),
+                    observation.end(),
+                    network.weights.begin() + i * network.dims,
+                    unit_dist.begin(),
+                    DistFunc<T>());
+            prototype_ranking[i] = std::sqrt(
+                    thrust::reduce(unit_dist.begin(), unit_dist.end(), 0, thrust::plus<T>()));
+        }
+//                ranked_indices = np.argsort(np.linalg.norm(W-observation[np.newaxis, ...], ord = 2, axis = 1))
+//                i0 = ranked_indices[0]
+//                i1 = ranked_indices[1]
+    }
+
+    template<typename P>
+    void UpdateCPU(const P &o) { // when the latency outweighs bandwidth issue
+        // find the nearest and the second nearest unit
+        typedef std::pair<int, T> rank_t;
+        auto cmp = [](rank_t left, rank_t right) { return left.second < right.second; };
+        std::priority_queue<rank_t, std::vector<rank_t>, decltype(cmp)> q_rank(cmp);
+        for (int i = 0; i < network.units; ++i) {
+            const T *w = thrust::raw_pointer_cast(network.weights.data()) + i * network.dims;
+            T dist = 0;
+            for(int j=0;j<network.dims;++j) {
+                T diff = o[j] - w[j];
+                dist += diff * diff;
+            }
+            q_rank.push(std::make_pair(i, dist));
+        }
+        auto winner = q_rank.top();
+        q_rank.pop();
+        int i0 = winner.first;
+        winner = q_rank.top();
+        int i1 = winner.first;
     }
 };
 
