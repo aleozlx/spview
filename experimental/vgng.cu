@@ -156,10 +156,102 @@ struct SOMNetworkHost {
     }
 };
 
+template<typename T>
+class Nearest2Points {
+    unsigned char ct = 0;
+public:
+    struct {
+        unsigned idx;
+        T dist;
+    } i0, i1;
+
+    void push(unsigned i, T d) {
+        switch (ct) {
+            case 2:
+                if (d < i0.dist) {
+                    i1 = i0;
+                    i0 = {i, d};
+                } else if (d < i1.dist)
+                    i1 = {i, d};
+                break;
+            case 0:
+                i0 = {i, d};
+                ++ct;
+                break;
+            case 1:
+                i1 = {i, d};
+                if (i0.dist > i1.dist)
+                    std::swap(i0, i1);
+                ++ct;
+                break;
+        }
+    }
+};
+
 template<typename T, typename SOMData>
 class SOMBase {
 protected:
     SOMData network;
+
+    void Connect(unsigned i, unsigned j, unsigned val = 1) {
+        network.connections[i * network.units + j] = val;
+        network.connections[j * network.units + i] = val;
+        network.conn_ages[i * network.units + j] = 0;
+        network.conn_ages[j * network.units + i] = 0;
+    }
+
+    void Disconnect(unsigned i, unsigned j) {
+        Connect(i, j, 0);
+    }
+
+    void ErrorDecay(T decay) {
+        for (unsigned j = 0; j < network.units; ++j)
+            network.errors[j] *= decay;
+    }
+
+    template<typename P>
+    void Tighten(const P &o, const unsigned winner, const T e_nearest, const T e_neibor) {
+        auto w0 = network.weights.data() + winner * network.dims;
+        const auto conn = network.connections.data() + winner * network.units;
+        std::vector <T> difference;
+        difference.reserve(network.dims);
+        for (unsigned j = 0; j < network.dims; ++j) {
+            T dx = (o[j] - w0[j]);
+            difference.push_back(dx);
+            w0[j] += dx * e_nearest;
+        }
+        for (unsigned k = 0; k < network.units; ++k) {
+            if (conn[k]) {
+                auto wk = network.weights.data() + k * network.dims;
+                for (unsigned j = 0; j < network.dims; ++j)
+                    wk[j] += difference[j] * e_neibor;
+            }
+        }
+    }
+
+    template<typename P>
+    T Distance2(const P &o, unsigned unit) {
+        const T *w = network.weights.data() + unit * network.dims;
+        T dist = 0;
+        for (unsigned j = 0; j < network.dims; ++j) {
+            T diff = o[j] - w[j];
+            dist += diff * diff;
+        }
+        return dist;
+    }
+
+    template<typename P>
+    void RankUnits(const P &o, Nearest2Points<T> &q_rank) {
+        for (unsigned i = 0; i < network.units; ++i) {
+            T dist = Distance2(o, i);
+            q_rank.push(i, dist);
+        }
+    }
+
+    void UpdateError(const Nearest2Points<T> &q_rank) {
+        network.errors[q_rank.i0.idx] += q_rank.i0.dist;
+    }
+
 public:
     SOMBase(unsigned units, unsigned dims) : network(units, dims) {
         network.Init();
@@ -238,95 +330,68 @@ protected:
 //                i1 = ranked_indices[1]
     }
 
-    class Nearest2Points {
-        unsigned char ct = 0;
-    public:
-        struct {
-            unsigned idx;
-            T dist;
-        } i0, i1;
-
-        void push(unsigned i, T d) {
-            switch (ct) {
-                case 2:
-                    if (d < i0.dist) {
-                        i1 = i0;
-                        i0 = {i, d};
-                    } else if (d < i1.dist)
-                        i1 = {i, d};
-                    break;
-                case 0:
-                    i0 = {i, d};
-                    ++ct;
-                    break;
-                case 1:
-                    i1 = {i, d};
-                    if (i0.dist > i1.dist)
-                        std::swap(i0, i1);
-                    ++ct;
-                    break;
-            }
-        }
-    };
-
-    template<typename P>
-    T Distance2(const P &o, unsigned unit) {
-        const T *w = network.weights.data() + unit * network.dims;
-        T dist = 0;
-        for (unsigned j = 0; j < network.dims; ++j) {
-            T diff = o[j] - w[j];
-            dist += diff * diff;
-        }
-        return dist;
-    }
-
     template<typename P>
     void UpdateCPU(const P &o, const unsigned steps) { // when the latency outweighs bandwidth issue
         // 2. find the nearest and the second nearest unit
-        Nearest2Points q_rank;
-        for (unsigned i = 0; i < network.units; ++i) {
-            T dist = Distance2(o, i);
-            q_rank.push(i, dist);
-        }
+        Nearest2Points<T> q_rank;
+        RankUnits(o, q_rank);
+        const unsigned i0 = q_rank.i0.idx, i1 = q_rank.i1.idx;
 
         // 3. increment the age of all edges emanating from i0
-        const unsigned i0 = q_rank.i0.idx;
-        const auto conn = network.connections.data() + i0 * network.units;
-        auto ages = network.conn_ages.data() + i0 * network.units;
-        auto ages_ = network.conn_ages.data() + i0;
-        for (unsigned j = 0; j < network.units; ++j) {
-            if (conn[j])
-                ages[j] += 1;
-            *ages_ = ages[j];
-            ages_ += network.units;
-        }
+        UpdateEdgeAges(i0);
 
         // 4. add the squared distance between the observation and i0 in feature space
-        network.errors[i0] += q_rank.i0.dist;
+        UpdateError(q_rank);
 
         // 5. move i0 and its direct topological neighbors towards the observation
-        auto w0 = network.weights.data() + i0 * network.dims;
-        std::vector <T> difference;
-        difference.reserve(network.dims);
-        for (unsigned j = 0; j < network.dims; ++j) {
-            T dx = (o[j] - w0[j]);
-            difference.push_back(dx);
-            w0[j] += dx * params.e_nearest;
-        }
-        for (unsigned k = 0; k < network.units; ++k) {
-            if (conn[k]) {
-                auto wk = network.weights.data() + k * network.dims;
-                for (unsigned j = 0; j < network.dims; ++j)
-                    wk[j] += difference[j] * params.e_neibor;
-            }
-        }
+        Tighten(o, i0, params.e_nearest, params.e_neibor);
 
         // 6. if i0 and i1 are connected by an edge, set the age of this edge to zero
         //    if such an edge doesn't exist, create it
-        Connect(i0, q_rank.i1.idx);
+        Connect(i0, i1);
 
         // 7. remove edges with an age larger than MAX_AGE
         //    if this results in units having no emanating edges, remove them as well
+        Prune();
+
+        // 8. if the number of steps so far is an integer multiple of parameter STEP_NEW_UNIT, insert a new unit
+        if (steps % params.step_new_unit == 0)
+            Grow();
+
+        // 9. decrease all error variables by multiplying them with a constant
+        ErrorDecay(params.err_decay_global);
+    }
+
+    void Grow() {// sequence += 1
+        // 8.a determine the unit q with the maximum accumulated error
+        unsigned q = ArgmaxError();
+        // 8.b insert a new unit r halfway between q and its neighbor f with the largest error variable
+        const auto neighbors = GetNeighbors(q);
+        if (neighbors.size() > 0) {
+            unsigned f = ArgmaxError(neighbors);
+            SOMNetworkHost<T> new_som(network.units + 1, network.dims);
+            new_som.From(network);
+            network = new_som;
+            const auto wq = network.weights.data() + q * network.dims;
+            const auto wf = network.weights.data() + f * network.dims;
+            const unsigned nu = new_som.units - 1;
+            auto w_new = network.weights.data() + nu * network.dims;
+            for (unsigned j = 0; j < network.dims; ++j)
+                w_new[j] = (wq[j] + wf[j]) * 0.5;
+            // 8.c insert edges connecting the new unit r with q and f
+            //     remove the original edge between q and f
+            Connect(q, nu);
+            Connect(f, nu);
+            Disconnect(q, f);
+            // 8.d decrease the error variables of q and f by multiplying them with a
+            //     initialize the error variable of r with the new value of the error variable of q
+            network.errors[q] *= params.err_decay_local;
+            network.errors[f] *= params.err_decay_local;
+            network.errors[nu] = network.errors[q];
+        }
+    }
+
+    void Prune() {
         for (unsigned i = 0; i < network.units; ++i) {
             for (unsigned j = i; j < network.units; ++j) {
                 if (network.conn_ages[i * network.units + j] > params.max_age)
@@ -349,56 +414,23 @@ protected:
             new_som.FromNonZero(network, nz);
             network = new_som;
         }
+    }
 
-        // 8. if the number of steps so far is an integer multiple of parameter STEP_NEW_UNIT, insert a new unit
-        if (steps % params.step_new_unit == 0) {
-            // sequence += 1
-            // 8.a determine the unit q with the maximum accumulated error
-            unsigned q = ArgmaxError();
-            // 8.b insert a new unit r halfway between q and its neighbor f with the largest error variable
-            const auto neighbors = GetNeighbors(q);
-            if (neighbors.size() > 0) {
-                unsigned f = ArgmaxError(neighbors);
-                SOMNetworkHost<T> new_som(network.units + 1, network.dims);
-                new_som.From(network);
-                network = new_som;
-                const auto wq = network.weights.data() + q * network.dims;
-                const auto wf = network.weights.data() + f * network.dims;
-                const unsigned nu = new_som.units - 1;
-                auto w_new = network.weights.data() + nu * network.dims;
-                for (unsigned j = 0; j < network.dims; ++j)
-                    w_new[j] = (wq[j] + wf[j]) * 0.5;
-                // 8.c insert edges connecting the new unit r with q and f
-                //     remove the original edge between q and f
-                Connect(q, nu);
-                Connect(f, nu);
-                Disconnect(q, f);
-                // 8.d decrease the error variables of q and f by multiplying them with a
-                //     initialize the error variable of r with the new value of the error variable of q
-                network.errors[q] *= params.err_decay_local;
-                network.errors[f] *= params.err_decay_local;
-                network.errors[nu] = network.errors[q];
-            }
+    void UpdateEdgeAges(const unsigned i0) {
+        const auto conn = network.connections.data() + i0 * network.units;
+        auto ages = network.conn_ages.data() + i0 * network.units;
+        auto ages_ = network.conn_ages.data() + i0;
+        for (unsigned j = 0; j < network.units; ++j) {
+            if (conn[j])
+                ages[j] += 1;
+            *ages_ = ages[j];
+            ages_ += network.units;
         }
-
-        // 9. decrease all error variables by multiplying them with a constant
-        for (unsigned j = 0; j < network.units; ++j)
-            network.errors[j] *= params.err_decay_global;
-    }
-
-    void Connect(unsigned i, unsigned j, unsigned val = 1) {
-        network.connections[i * network.units + j] = val;
-        network.connections[j * network.units + i] = val;
-        network.conn_ages[i * network.units + j] = 0;
-        network.conn_ages[j * network.units + i] = 0;
-    }
-
-    void Disconnect(unsigned i, unsigned j) {
-        Connect(i, j, 0);
     }
 
     std::vector<unsigned> GetNeighbors(unsigned q) {
         std::vector<unsigned> ret;
+        ret.reserve(network.units);
         const auto neighbors = network.connections.data() + q * network.units;
         for (unsigned j = 0; j < network.units; ++j)
             if (neighbors[j])
@@ -412,20 +444,18 @@ protected:
 
     unsigned ArgmaxError() {
         unsigned m = 0;
-        for (int j = 0; j < network.units; ++j) {
+        for (int j = 0; j < network.units; ++j)
             if (error_compare(m, j))
                 m = j;
-            return m;
-        }
+        return m;
     }
 
     unsigned ArgmaxError(const std::vector<unsigned> &subset) {
         unsigned m = 0;
-        for (auto j:subset) {
+        for (auto j:subset)
             if (error_compare(m, j))
                 m = j;
-            return m;
-        }
+        return m;
     }
 };
 
