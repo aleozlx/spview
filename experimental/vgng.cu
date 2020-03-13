@@ -7,6 +7,8 @@
 #include <cassert>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
+#include <chrono>
+#include <map>
 
 #include <thrust/device_malloc_allocator.h>
 #include <thrust/system_error.h>
@@ -32,46 +34,50 @@
 //    }
 //};
 
-template<typename T>
-struct SOMNetwork {
-    const size_t units, dims;
-    thrust::device_vector <T> weights; // W
-    thrust::device_vector<bool> connections; // C
-    thrust::device_vector<unsigned> conn_ages; // T
-    thrust::device_vector <T> errors; // E
+#define PROFILER_BEGIN start = std::chrono::steady_clock::now();
+#define PROFILER_END(N) end = std::chrono::steady_clock::now();profiler[N] += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+std::map<unsigned, unsigned long long> profiler;
 
-    SOMNetwork(size_t units, size_t dims) :
-            units(units),
-            dims(dims),
-            weights(units * dims),
-            connections(units * units),
-            conn_ages(units * units),
-            errors(units) {
-    }
-
-    void Init() {
-        std::random_device dev;
-        std::mt19937 rng(dev());
-        std::uniform_real_distribution <T> dist(-2, 2);
-        thrust::host_vector <T> _weights(units * dims);
-        thrust::host_vector <T> _connections(units * units);
-        for (int i = 0; i < units * dims; ++i)
-            _weights[i] = dist(rng);
-        for (int i = 0; i < units; ++i)
-            for (int j = 0; j < units; ++j)
-                _connections[i * units + j] = i != j;
-        this->weights = _weights;
-        this->connections = _connections;
-        thrust::fill(conn_ages.begin(), conn_ages.end(), 0);
-        thrust::fill(errors.begin(), errors.end(), 0);
-    }
-};
+//template<typename T>
+//struct SOMNetwork {
+//    const size_t units, dims;
+//    thrust::device_vector <T> weights; // W
+//    thrust::device_vector<bool> connections; // C
+//    thrust::device_vector<unsigned> conn_ages; // T
+//    thrust::device_vector <T> errors; // E
+//
+//    SOMNetwork(size_t units, size_t dims) :
+//            units(units),
+//            dims(dims),
+//            weights(units * dims),
+//            connections(units * units),
+//            conn_ages(units * units),
+//            errors(units) {
+//    }
+//
+//    void Init() {
+//        std::random_device dev;
+//        std::mt19937 rng(dev());
+//        std::uniform_real_distribution <T> dist(-2, 2);
+//        thrust::host_vector <T> _weights(units * dims);
+//        thrust::host_vector <T> _connections(units * units);
+//        for (int i = 0; i < units * dims; ++i)
+//            _weights[i] = dist(rng);
+//        for (int i = 0; i < units; ++i)
+//            for (int j = 0; j < units; ++j)
+//                _connections[i * units + j] = i != j;
+//        this->weights = _weights;
+//        this->connections = _connections;
+//        thrust::fill(conn_ages.begin(), conn_ages.end(), 0);
+//        thrust::fill(errors.begin(), errors.end(), 0);
+//    }
+//};
 
 template<typename T>
 struct SOMNetworkHost {
     size_t units, dims;
     std::vector <T> weights; // W
-    std::vector<unsigned> connections; // C note: unsigned instead of bool to avoid __nv_bool
+    std::vector<unsigned char> connections; // C note: unsigned instead of bool to avoid __nv_bool
     std::vector<unsigned> conn_ages; // T
     std::vector <T> errors; // E
 
@@ -83,24 +89,6 @@ struct SOMNetworkHost {
             conn_ages(units * units),
             errors(units) {
     }
-
-//    SOMNetworkHost(const SOMNetworkHost<T> &other) :
-//            units(other.units),
-//            dims(other.dims),
-//            weights(other.weights),
-//            connections(other.connections),
-//            conn_ages(other.conn_ages),
-//            errors(other.errors) {
-//    }
-//
-//    SOMNetworkHost<T>& operator = (const SOMNetworkHost<T>& other){
-//        SOMNetworkHost<T> tmp(other.units, other.dims);
-//        std::swap(weights, other.weights);
-//        std::swap(connections, other.connections);
-//        std::swap(conn_ages, other.conn_ages);
-//        std::swap(errors, other.errors);
-//        return *this;
-//    }
 
     void Init() {
         std::random_device dev;
@@ -116,7 +104,7 @@ struct SOMNetworkHost {
     }
 
     void FromNonZero(const SOMNetworkHost<T> &a, const std::vector<unsigned> &nz) {
-        assert(a.units == ns.size());
+        assert(a.units == nz.size());
         auto w = weights.data();
         for (int i = 0; i < units; ++i)
             for (int j = 0; j < dims; ++j)
@@ -158,7 +146,7 @@ struct SOMNetworkHost {
 
 template<typename T>
 class Nearest2Points {
-    unsigned char ct = 0;
+    unsigned char ct = 2;
 public:
     struct {
         unsigned idx;
@@ -166,24 +154,24 @@ public:
     } i0, i1;
 
     void push(unsigned i, T d) {
-        switch (ct) {
-            case 2:
-                if (d < i0.dist) {
+        if (ct == 0) {
+            if (d >= i1.dist) return;
+            if (d >= i0.dist)
+                i1 = {i, d};
+            else {
+                i1 = i0;
+                i0 = {i, d};
+            }
+        } else {
+            if (ct == 1) {
+                if (d >= i0.dist)
+                    i1 = {i, d};
+                else {
                     i1 = i0;
                     i0 = {i, d};
-                } else if (d < i1.dist)
-                    i1 = {i, d};
-                break;
-            case 0:
-                i0 = {i, d};
-                ++ct;
-                break;
-            case 1:
-                i1 = {i, d};
-                if (i0.dist > i1.dist)
-                    std::swap(i0, i1);
-                ++ct;
-                break;
+                }
+            } else i0 = {i, d};
+            --ct;
         }
     }
 };
@@ -193,15 +181,24 @@ class SOMBase {
 protected:
     SOMData network;
 
-    void Connect(unsigned i, unsigned j, unsigned val = 1) {
-        network.connections[i * network.units + j] = val;
-        network.connections[j * network.units + i] = val;
-        network.conn_ages[i * network.units + j] = 0;
-        network.conn_ages[j * network.units + i] = 0;
+    inline void Connect(const unsigned i, const unsigned j) {
+        const unsigned ij = i * network.units + j, ji = j * network.units + i;
+        network.connections[ij] = 1;
+        network.conn_ages[ij] = 0;
+        if (i != j) {
+            network.connections[ji] = 1;
+            network.conn_ages[ji] = 0;
+        }
     }
 
-    void Disconnect(unsigned i, unsigned j) {
-        Connect(i, j, 0);
+    inline void Disconnect(const unsigned i, const unsigned j) {
+        const unsigned ij = i * network.units + j, ji = j * network.units + i;
+        network.connections[ij] = 0;
+        network.conn_ages[ij] = 0;
+        if (i != j) {
+            network.connections[ji] = 0;
+            network.conn_ages[ji] = 0;
+        }
     }
 
     void ErrorDecay(T decay) {
@@ -272,6 +269,35 @@ struct DistFunc : thrust::binary_function<T, T, T> {
     }
 };
 
+__global__ void prune_conn(unsigned char *C, unsigned *T, const unsigned n, const unsigned max_age) {
+    const unsigned i = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned j = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n && j < n && i <= j) {
+        const unsigned ij = i * n + j;
+        if (T[ij] > max_age) {
+            C[ij] = 0;
+            T[ij] = 0;
+            if (i != j) {
+                const unsigned ji = j * n + i;
+                C[ji] = 0;
+                T[ji] = 0;
+            }
+        }
+    }
+//    for (unsigned i = 0; i < network.units; ++i)
+//        for (unsigned j = i; j < network.units; ++j)
+//            if (network.conn_ages[i * network.units + j] > params.max_age)
+//                Disconnect(i, j);
+//    for (unsigned i = 0; i < network.units; ++i) {
+//        const auto conn = network.connections.data() + i * network.units;
+//        for (unsigned j = 0; j < network.units; ++j)
+//            if (conn[j] != 0) {
+//                nz.push_back(i);
+//                break;
+//            }
+//    }
+}
+
 template<typename T, typename SOMData>
 class GrowingNeuralGas : public SOMBase<T, SOMData> {
 public:
@@ -292,9 +318,16 @@ public:
 
     }
 
+    unsigned char *d_connections;
+    unsigned *d_conn_ages;
+
     template<typename P>
     void Fit(std::vector <P> &input_data) {
-        unsigned sequence = 0;
+        if (cudaSuccess != cudaMalloc(&d_connections, sizeof(unsigned char) * network.connections.size()))
+            std::cerr << "cudaMalloc error d_connections" << std::endl;
+        if (cudaSuccess != cudaMalloc(&d_conn_ages, sizeof(unsigned) * network.conn_ages.size()))
+            std::cerr << "cudaMalloc error d_conn_ages" << std::endl;
+//        unsigned sequence = 0;
         for (unsigned p = 0; p < params.n_pass; ++p) {
             std::cout << "    Pass #" << (p + 1) << std::endl;
             std::random_shuffle(input_data.begin(), input_data.end());
@@ -308,6 +341,8 @@ public:
                 UpdateCPU(o, steps);
             }
         }
+        cudaFree(d_connections);
+        cudaFree(d_conn_ages);
     }
 
 protected:
@@ -330,21 +365,30 @@ protected:
 //                i1 = ranked_indices[1]
     }
 
+
     template<typename P>
     void UpdateCPU(const P &o, const unsigned steps) { // when the latency outweighs bandwidth issue
+
         // 2. find the nearest and the second nearest unit
         Nearest2Points<T> q_rank;
+        auto start = std::chrono::steady_clock::now();
         RankUnits(o, q_rank);
         const unsigned i0 = q_rank.i0.idx, i1 = q_rank.i1.idx;
+        auto end = std::chrono::steady_clock::now();
+        profiler[2] += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
 
         // 3. increment the age of all edges emanating from i0
+        PROFILER_BEGIN
         UpdateEdgeAges(i0);
+        PROFILER_END(3)
 
         // 4. add the squared distance between the observation and i0 in feature space
         UpdateError(q_rank);
 
         // 5. move i0 and its direct topological neighbors towards the observation
+        PROFILER_BEGIN
         Tighten(o, i0, params.e_nearest, params.e_neibor);
+        PROFILER_END(5)
 
         // 6. if i0 and i1 are connected by an edge, set the age of this edge to zero
         //    if such an edge doesn't exist, create it
@@ -352,14 +396,20 @@ protected:
 
         // 7. remove edges with an age larger than MAX_AGE
         //    if this results in units having no emanating edges, remove them as well
+        PROFILER_BEGIN
         Prune();
+        PROFILER_END(7)
 
         // 8. if the number of steps so far is an integer multiple of parameter STEP_NEW_UNIT, insert a new unit
+        PROFILER_BEGIN
         if (steps % params.step_new_unit == 0)
             Grow();
+        PROFILER_END(8)
 
         // 9. decrease all error variables by multiplying them with a constant
+        PROFILER_BEGIN
         ErrorDecay(params.err_decay_global);
+        PROFILER_END(9)
     }
 
     void Grow() {// sequence += 1
@@ -371,7 +421,7 @@ protected:
             unsigned f = ArgmaxError(neighbors);
             SOMNetworkHost<T> new_som(network.units + 1, network.dims);
             new_som.From(network);
-            network = new_som;
+            network = std::move(new_som);
             const auto wq = network.weights.data() + q * network.dims;
             const auto wf = network.weights.data() + f * network.dims;
             const unsigned nu = new_som.units - 1;
@@ -391,28 +441,40 @@ protected:
         }
     }
 
+
     void Prune() {
-        for (unsigned i = 0; i < network.units; ++i) {
-            for (unsigned j = i; j < network.units; ++j) {
-                if (network.conn_ages[i * network.units + j] > params.max_age)
-                    Disconnect(i, j);
-            }
-        }
         std::vector<unsigned> nz;
         nz.reserve(network.units);
+//        cudaMemcpy(d_connections, network.connections.data(), sizeof(unsigned char)*network.connections.size(), cudaMemcpyHostToDevice);
+//        cudaError_t s = cudaMemcpy(d_conn_ages, network.conn_ages.data(), sizeof(unsigned)*network.conn_ages.size(), cudaMemcpyHostToDevice);
+        unsigned *dd;
+//        cudaMalloc(&dd, sizeof(unsigned) * network.conn_ages.size());
+//        cudaError_t s = cudaMemcpy(dd, network.conn_ages.data(), sizeof(unsigned) * network.conn_ages.size(),
+//                                   cudaMemcpyHostToDevice);
+//        cudaFree(dd);
+//        if (cudaSuccess != s) {
+//            std::cerr << "cudaMemcpy error " << cudaGetErrorString(s) << std::endl;
+//            std::cerr << d_conn_ages << " " << network.conn_ages.data() << " "
+//                      << sizeof(unsigned) * network.conn_ages.size() << " " << cudaMemcpyHostToDevice << std::endl;
+//        }
+
+        for (unsigned i = 0; i < network.units; ++i)
+            for (unsigned j = i; j < network.units; ++j)
+                if (network.conn_ages[i * network.units + j] > params.max_age)
+                    Disconnect(i, j);
         for (unsigned i = 0; i < network.units; ++i) {
             const auto conn = network.connections.data() + i * network.units;
-            unsigned deg = 0;
             for (unsigned j = 0; j < network.units; ++j)
-                deg += conn[j];
-            if (deg > 0)
-                nz.push_back(i);
+                if (conn[j] != 0) {
+                    nz.push_back(i);
+                    break;
+                }
         }
         if (nz.size() != network.units && nz.size() >= 2) {
-            std::cerr << "GNG Downscaling " << network.units << " -> " << nz.size() << std::endl;
+//            std::cerr << "GNG Downscaling " << network.units << " -> " << nz.size() << std::endl;
             SOMNetworkHost<T> new_som(nz.size(), network.dims);
             new_som.FromNonZero(network, nz);
-            network = new_som;
+            network = std::move(new_som);
         }
     }
 
@@ -473,7 +535,19 @@ int main(int, char **) {
             .618, .995,
             8
     });
+
+    profiler[2] = 0;
+    profiler[3] = 0;
+    profiler[5] = 0;
+    profiler[7] = 0;
+    profiler[8] = 0;
+    profiler[9] = 0;
+
     gng.Fit(sample_data);
+
+    for (auto i : profiler)
+        std::cout << "Profiler " << i.first << " = " << i.second
+                  << std::endl;
     return 0;
 }
 
