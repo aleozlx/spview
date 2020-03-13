@@ -74,20 +74,65 @@ std::map<unsigned, unsigned long long> profiler;
 //};
 
 template<typename T>
-struct SOMNetworkHost {
+class SOMNetworkHost {
+private:
+    unsigned invalid=0;
+    unsigned units_cap;
+public:
     size_t units, dims;
-    std::vector <T> weights; // W
-    std::vector<unsigned char> connections; // C note: unsigned instead of bool to avoid __nv_bool
-    std::vector<unsigned> conn_ages; // T
-    std::vector <T> errors; // E
+    T *weights; // W
+    bool *connections; // C
+    bool *d_connections = nullptr;
+    unsigned *conn_ages; // T
+    unsigned *d_conn_ages = nullptr;
+    T *errors; // E
 
     SOMNetworkHost(size_t units, size_t dims) :
             units(units),
-            dims(dims),
-            weights(units * dims),
-            connections(units * units),
-            conn_ages(units * units),
-            errors(units) {
+            dims(dims) {
+        const unsigned units2 = units * units;
+        weights = new T[units * dims];
+        connections = new bool[units2];
+        conn_ages = new unsigned[units2];
+        errors = new T[units];
+        if (cudaSuccess != cudaMalloc(&d_connections, sizeof(bool) * units2))
+            std::cerr << "cudaMalloc error d_connections" << std::endl;
+        if (cudaSuccess != cudaMalloc(&d_conn_ages, sizeof(unsigned) * units2))
+            std::cerr << "cudaMalloc error d_conn_ages" << std::endl;
+    }
+
+    SOMNetworkHost(const SOMNetworkHost<T> &other) : units(other.units), dims(other.dims) {
+        From(other);
+    }
+
+//    SOMNetworkHost(const SOMNetworkHost<T> &&other) : units(other.units), dims(other.dims) {
+//        weights = other.weights;
+//        connections = other.connections;
+//        conn_ages = other.conn_ages;
+//        errors = other.errors;
+//        other.invalid = 1;
+//    }
+
+    SOMNetworkHost<T>& operator=(SOMNetworkHost<T>& other) = delete;
+    SOMNetworkHost<T>& operator=(SOMNetworkHost<T>&& other) {
+        if (&other == this) return *this;
+        weights = other.weights;
+        connections = other.connections;
+        conn_ages = other.conn_ages;
+        errors = other.errors;
+        other.invalid = 1;
+        return *this;
+    }
+
+    ~SOMNetworkHost() {
+        if(!invalid) {
+            delete[] weights;
+            delete[] connections;
+            delete[] conn_ages;
+            delete[] errors;
+            cudaFree(d_connections);
+            cudaFree(d_conn_ages);
+        }
     }
 
     void Init() {
@@ -99,48 +144,52 @@ struct SOMNetworkHost {
         for (int i = 0; i < units; ++i)
             for (int j = 0; j < units; ++j)
                 connections[i * units + j] = i != j;
-        thrust::fill(conn_ages.begin(), conn_ages.end(), 0);
-        thrust::fill(errors.begin(), errors.end(), 0);
+//        std::memset(conn_ages, sizeof(unsigned) * units * units, 0);
+//        std::memset(errors, sizeof(T) * units, 0);
+        std::fill(conn_ages, conn_ages+ units * units, 0);
+        std::fill(errors, errors+units, 0);
+//        thrust::fill(conn_ages.begin(), conn_ages.end(), 0);
+//        thrust::fill(errors.begin(), errors.end(), 0);
     }
 
     void FromNonZero(const SOMNetworkHost<T> &a, const std::vector<unsigned> &nz) {
         assert(a.units == nz.size());
-        auto w = weights.data();
+        auto w = weights;
         for (int i = 0; i < units; ++i)
             for (int j = 0; j < dims; ++j)
                 *w++ = a.weights[nz[i] * a.dims + j];
-        auto c = connections.data();
+        auto c = connections;
         for (int i = 0; i < units; ++i)
             for (int j = 0; j < units; ++j)
                 *c++ = a.connections[nz[i] * a.units + nz[j]];
-        auto t = conn_ages.data();
+        auto t = conn_ages;
         for (int i = 0; i < units; ++i)
             for (int j = 0; j < units; ++j)
                 *t++ = a.conn_ages[nz[i] * a.units + nz[j]];
-        auto e = errors.data();
+        auto e = errors;
         for (int i = 0; i < units; ++i)
             e[i] = a.errors[nz[i]];
     }
 
     void From(const SOMNetworkHost<T> &a) {
         assert(units <= a.units);
-        auto w = weights.data();
+        auto w = weights;
         for (int i = 0; i < units; ++i) {
             std::memcpy(w, &a.weights[i * a.dims], sizeof(T) * dims);
             w += dims;
         }
-        auto c = connections.data();
+        auto c = connections;
         for (int i = 0; i < units; ++i) {
             std::memcpy(c, &a.connections[i * a.units], sizeof(std::remove_pointer<decltype(c)>::type) * units);
             c += units;
         }
-        auto t = conn_ages.data();
+        auto t = conn_ages;
         for (int i = 0; i < units; ++i) {
             std::memcpy(t, &a.conn_ages[i * a.units], sizeof(unsigned) * units);
             t += units;
         }
-        auto e = errors.data();
-        std::memcpy(e, a.errors.data(), sizeof(T) * units);
+        auto e = errors;
+        std::memcpy(e, a.errors, sizeof(T) * units);
     }
 };
 
@@ -208,8 +257,8 @@ protected:
 
     template<typename P>
     void Tighten(const P &o, const unsigned winner, const T e_nearest, const T e_neibor) {
-        auto w0 = network.weights.data() + winner * network.dims;
-        const auto conn = network.connections.data() + winner * network.units;
+        auto w0 = network.weights + winner * network.dims;
+        const auto conn = network.connections + winner * network.units;
         std::vector <T> difference;
         difference.reserve(network.dims);
         for (unsigned j = 0; j < network.dims; ++j) {
@@ -219,7 +268,7 @@ protected:
         }
         for (unsigned k = 0; k < network.units; ++k) {
             if (conn[k]) {
-                auto wk = network.weights.data() + k * network.dims;
+                auto wk = network.weights + k * network.dims;
                 for (unsigned j = 0; j < network.dims; ++j)
                     wk[j] += difference[j] * e_neibor;
             }
@@ -228,7 +277,7 @@ protected:
 
     template<typename P>
     T Distance2(const P &o, unsigned unit) {
-        const T *w = network.weights.data() + unit * network.dims;
+        const T *w = network.weights + unit * network.dims;
         T dist = 0;
         for (unsigned j = 0; j < network.dims; ++j) {
             T diff = o[j] - w[j];
@@ -269,7 +318,7 @@ struct DistFunc : thrust::binary_function<T, T, T> {
     }
 };
 
-__global__ void prune_conn(unsigned char *C, unsigned *T, const unsigned n, const unsigned max_age) {
+__global__ void prune_conn(bool *C, unsigned *T, const unsigned n, const unsigned max_age) {
     const unsigned i = blockIdx.y * blockDim.y + threadIdx.y;
     const unsigned j = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n && j < n && i <= j) {
@@ -318,15 +367,12 @@ public:
 
     }
 
-    unsigned char *d_connections;
-    unsigned *d_conn_ages;
-
     template<typename P>
     void Fit(std::vector <P> &input_data) {
-        if (cudaSuccess != cudaMalloc(&d_connections, sizeof(unsigned char) * network.connections.size()))
-            std::cerr << "cudaMalloc error d_connections" << std::endl;
-        if (cudaSuccess != cudaMalloc(&d_conn_ages, sizeof(unsigned) * network.conn_ages.size()))
-            std::cerr << "cudaMalloc error d_conn_ages" << std::endl;
+//        if (cudaSuccess != cudaMalloc(&d_connections, sizeof(unsigned char) * network.connections.size()))
+//            std::cerr << "cudaMalloc error d_connections" << std::endl;
+//        if (cudaSuccess != cudaMalloc(&d_conn_ages, sizeof(unsigned) * network.conn_ages.size()))
+//            std::cerr << "cudaMalloc error d_conn_ages" << std::endl;
 //        unsigned sequence = 0;
         for (unsigned p = 0; p < params.n_pass; ++p) {
             std::cout << "    Pass #" << (p + 1) << std::endl;
@@ -341,8 +387,8 @@ public:
                 UpdateCPU(o, steps);
             }
         }
-        cudaFree(d_connections);
-        cudaFree(d_conn_ages);
+//        cudaFree(d_connections);
+//        cudaFree(d_conn_ages);
     }
 
 protected:
@@ -422,10 +468,10 @@ protected:
             SOMNetworkHost<T> new_som(network.units + 1, network.dims);
             new_som.From(network);
             network = std::move(new_som);
-            const auto wq = network.weights.data() + q * network.dims;
-            const auto wf = network.weights.data() + f * network.dims;
+            const auto wq = network.weights + q * network.dims;
+            const auto wf = network.weights + f * network.dims;
             const unsigned nu = new_som.units - 1;
-            auto w_new = network.weights.data() + nu * network.dims;
+            auto w_new = network.weights + nu * network.dims;
             for (unsigned j = 0; j < network.dims; ++j)
                 w_new[j] = (wq[j] + wf[j]) * 0.5;
             // 8.c insert edges connecting the new unit r with q and f
@@ -445,9 +491,10 @@ protected:
     void Prune() {
         std::vector<unsigned> nz;
         nz.reserve(network.units);
-//        cudaMemcpy(d_connections, network.connections.data(), sizeof(unsigned char)*network.connections.size(), cudaMemcpyHostToDevice);
+        const unsigned units2 = network.units*network.units;
+//        cudaMemcpy(network.d_connections, network.connections, sizeof(bool)*units2, cudaMemcpyHostToDevice);
 //        cudaError_t s = cudaMemcpy(d_conn_ages, network.conn_ages.data(), sizeof(unsigned)*network.conn_ages.size(), cudaMemcpyHostToDevice);
-        unsigned *dd;
+//        unsigned *dd;
 //        cudaMalloc(&dd, sizeof(unsigned) * network.conn_ages.size());
 //        cudaError_t s = cudaMemcpy(dd, network.conn_ages.data(), sizeof(unsigned) * network.conn_ages.size(),
 //                                   cudaMemcpyHostToDevice);
@@ -463,7 +510,7 @@ protected:
                 if (network.conn_ages[i * network.units + j] > params.max_age)
                     Disconnect(i, j);
         for (unsigned i = 0; i < network.units; ++i) {
-            const auto conn = network.connections.data() + i * network.units;
+            const auto conn = network.connections + i * network.units;
             for (unsigned j = 0; j < network.units; ++j)
                 if (conn[j] != 0) {
                     nz.push_back(i);
@@ -479,9 +526,9 @@ protected:
     }
 
     void UpdateEdgeAges(const unsigned i0) {
-        const auto conn = network.connections.data() + i0 * network.units;
-        auto ages = network.conn_ages.data() + i0 * network.units;
-        auto ages_ = network.conn_ages.data() + i0;
+        const auto conn = network.connections + i0 * network.units;
+        auto ages = network.conn_ages + i0 * network.units;
+        auto ages_ = network.conn_ages + i0;
         for (unsigned j = 0; j < network.units; ++j) {
             if (conn[j])
                 ages[j] += 1;
@@ -493,7 +540,7 @@ protected:
     std::vector<unsigned> GetNeighbors(unsigned q) {
         std::vector<unsigned> ret;
         ret.reserve(network.units);
-        const auto neighbors = network.connections.data() + q * network.units;
+        const auto neighbors = network.connections + q * network.units;
         for (unsigned j = 0; j < network.units; ++j)
             if (neighbors[j])
                 ret.push_back(j);
