@@ -25,6 +25,7 @@ bool WindowFeed::Draw() {
     ImGui::TextColored(color_header, "From a Static Image");
     if (ImGui::Button("Launch")) {
         auto w = std::make_unique<WindowAnalyzerS>(std::string(b_static_image_path));
+        w->GrantCreateWindow(CreateIWindow);
         this->CreateIWindow(std::move(w));
     }
     ImGui::SameLine();

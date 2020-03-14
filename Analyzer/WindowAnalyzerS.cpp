@@ -15,24 +15,25 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
         b_superpixel_size(18),
         b_superpixel_compactness(6),
         b_superpixel_enforce_conn(true),
-        b_superpixel_colorspace(gSLICr::CIELAB) {
+        b_superpixel_colorspace(gSLICr::CIELAB),
+        s_wSetDisplaySize(new bool(false)) {
     frame_raw = cv::imread(src);
     cv::Size frame_size = frame_raw.size();
     if (b_fit_width) {
-        frame_display_size = spt::Math::FitWidth(frame_size, fit_width);
-        imSuperpixels = spt::TexImage(frame_display_size.width, frame_display_size.height, 3);
+        *frame_display_size = spt::Math::FitWidth(frame_size, fit_width);
+        imSuperpixels = spt::TexImage(frame_display_size->width, frame_display_size->height, 3);
     } else {
         imSuperpixels = spt::TexImage(frame_size.width, frame_size.height, 3);
     }
     if (b_fit_width && b_resize_input) {
-        gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
+        gslic_settings.img_size = {frame_display_size->width, frame_display_size->height};
     } else {
         gslic_settings.img_size = {frame_size.width, frame_size.height};
     }
     gslic_settings.no_segs = 64;
     gslic_settings.spixel_size = b_superpixel_size.val;
     gslic_settings.no_iters = 5;
-    gslic_settings.coh_weight = ((float)b_superpixel_compactness.val) / 10.f;
+    gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
     gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
     gslic_settings.color_space = static_cast<gSLICr::COLOR_SPACE>(b_superpixel_colorspace.val);
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
@@ -57,7 +58,7 @@ bool WindowAnalyzerS::Draw() {
         }
     }
 
-    if(b_gslic_options) {
+    if (b_gslic_options) {
         ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
         if (b_superpixel_size.Update()) {
             gslic_settings.spixel_size = b_superpixel_size.val;
@@ -95,7 +96,7 @@ bool WindowAnalyzerS::Draw() {
                  ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
     const cv::Size frame_size = frame.size();
     ImGui::Text("True size: %d x %d;  Resize: %d x %d",
-                frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
+                frame_size.width, frame_size.height, frame_display_size->width, frame_display_size->height);
     ImGui::End();
     return b_is_shown;
 }
@@ -103,9 +104,56 @@ bool WindowAnalyzerS::Draw() {
 void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
     fit_width = fitWidth;
     const cv::Size frame_size = frame.size();
-    frame_display_size = spt::Math::FitWidth(frame_size, fitWidth);
-    imSuperpixels = spt::TexImage(frame_display_size.width, frame_display_size.height, 3);
+    *frame_display_size = spt::Math::FitWidth(frame_size, fitWidth);
+    imSuperpixels = spt::TexImage(frame_display_size->width, frame_display_size->height, 3);
 }
+
+template<typename S>
+class WindowSetDisplaySize : public BaseWindow {
+protected:
+    bool b_is_shown = false;
+    std::shared_ptr<S> display_size;
+    int b_width, b_height;
+    bool b_fixed_aspect = true;
+    std::weak_ptr<bool> singleton;
+    std::function<void()> callback;
+public:
+    WindowSetDisplaySize(std::shared_ptr<S> display_size, const std::weak_ptr<bool> &singleton, std::function<void()> &&callback = nullptr) :
+            display_size(display_size),
+            b_width(display_size->width),
+            b_height(display_size->height),
+            singleton(singleton),
+            callback(callback) {
+        auto s = singleton.lock();
+        if (s) *s = true;
+    }
+
+    ~WindowSetDisplaySize() override {
+        auto s = singleton.lock();
+        if (s) *s = false;
+    }
+
+    IWindow *Show() override {
+        this->b_is_shown = true;
+        return dynamic_cast<IWindow *>(this);
+    }
+
+    bool Draw() override {
+        ImGui::Begin("Set Display Size", &b_is_shown);
+        ImGui::Checkbox("Lock Aspect Ratio", &b_fixed_aspect);
+        ImGui::InputInt("width", &b_width);
+        ImGui::InputInt("height", &b_height);
+        if (ImGui::Button("Apply")) {
+            *display_size = cv::Size(b_width, b_height);
+            b_is_shown = false;
+            if(callback) callback();
+        }
+        if (ImGui::Button("Cancel"))
+            b_is_shown = false;
+        ImGui::End();
+        return b_is_shown;
+    }
+};
 
 void WindowAnalyzerS::DrawMenuBar() {
     if (ImGui::BeginMenuBar()) {
@@ -123,6 +171,17 @@ void WindowAnalyzerS::DrawMenuBar() {
         if (ImGui::BeginMenu("Render")) {
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
+            if (ImGui::MenuItem("Set Display Size") && !*s_wSetDisplaySize) {
+                auto w = std::make_unique<WindowSetDisplaySize<cv::Size>>(
+                        frame_display_size, std::weak_ptr(s_wSetDisplaySize), [this]() {
+                            bool push_fit_width = this->b_fit_width;
+                            this->b_fit_width = true; // emulate resizing
+                            this->imSuperpixels = spt::TexImage(frame_display_size->width, frame_display_size->height, 3);
+                            this->ReloadSuperpixels();
+                            this->b_fit_width = push_fit_width;
+                        });
+                this->CreateIWindow(std::move(w));
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Superpixels")) {
@@ -168,8 +227,8 @@ void WindowAnalyzerS::ReloadSuperpixels() {
 #ifdef FEATURE_GSLICR
     // Input processing
     if (b_fit_width && b_resize_input) {
-        cv::resize(frame_raw, frame, frame_display_size, cv::INTER_CUBIC);
-        gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
+        cv::resize(frame_raw, frame, *frame_display_size, cv::INTER_CUBIC);
+        gslic_settings.img_size = {frame_display_size->width, frame_display_size->height};
     } else {
         cv::Size frame_size = frame_raw.size();
         frame = frame_raw;
@@ -188,7 +247,7 @@ void WindowAnalyzerS::ReloadSuperpixels() {
 
     // Output processing
     if (b_fit_width && !b_resize_input) {
-        cv::resize(frame_tex, frame_resized, frame_display_size, cv::INTER_CUBIC);
+        cv::resize(frame_tex, frame_resized, *frame_display_size, cv::INTER_CUBIC);
         imSuperpixels.Load(frame_resized.data);
     } else imSuperpixels.Load(frame_tex.data);
 #else

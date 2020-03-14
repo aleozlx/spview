@@ -132,20 +132,25 @@ protected:
     cv::Mat frame_raw; // directly from file
     cv::Mat frame; // input processing
     cv::Mat frame_tex;
-    cv::Size frame_display_size;
+    std::shared_ptr<cv::Size> frame_display_size;
     cv::Mat frame_resized; // output processing
     cv::Mat superpixel_contour; // visualized superpixel segmentation
     gSLICr::objects::settings gslic_settings;
     spt::TexImage imSuperpixels; // texture for display
 #endif
+
+    BaseAnalyzerWindow(): frame_display_size(new cv::Size()) {
+
+    }
 };
 
-class WindowAnalyzerS: public BaseAnalyzerWindow {
+class WindowAnalyzerS: public BaseAnalyzerWindow, public spt::AppEngine::CreatorIWindow {
 protected:
     LazyLoader<int> b_superpixel_size;
     LazyLoader<int> b_superpixel_compactness;
     LazyLoader<bool> b_superpixel_enforce_conn;
     LazyEnumLoader<gSLICr::COLOR_SPACE> b_superpixel_colorspace;
+    std::shared_ptr<bool> s_wSetDisplaySize;
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
