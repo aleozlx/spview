@@ -2,6 +2,7 @@
 #define __APP_HPP__
 #include <list>
 #include <memory>
+#include <functional>
 #include "imgui.h"
 
 #if FEATURE_DirectX
@@ -152,6 +153,13 @@ namespace spt::AppEngine {
             delete[] buf;
             return std::string(buf);
         }
+    };
+
+    class CreatorIWindow {
+    protected:
+        std::function<void(std::unique_ptr<IWindow>&&)> CreateIWindow = nullptr;
+    public:
+        void GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)>);
     };
 
 //    class IStaticWindow: public IWindow {

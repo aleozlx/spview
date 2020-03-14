@@ -96,11 +96,10 @@ public:
     o.BUF_NAME = nullptr; \
 } while (0)
 
-class WindowFeed: public BaseWindow {
+class WindowFeed: public BaseWindow, public spt::AppEngine::CreatorIWindow {
 protected:
     char *b_static_image_path;
     char *b_video_path;
-    std::function<void(std::unique_ptr<IWindow>&&)> CreateIWindow = nullptr;
     int b_camera_selection = 0;
 public:
     static const char *static_image_ext[];
@@ -113,7 +112,6 @@ public:
     WindowFeed(WindowFeed&&) noexcept;
     bool Draw() override;
     void SetStaticImagePath(const char *src);
-    void GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)>);
 };
 
 class WindowRegistry: public BaseWindow {

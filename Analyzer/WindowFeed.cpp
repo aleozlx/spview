@@ -62,7 +62,3 @@ bool WindowFeed::Draw() {
 void WindowFeed::SetStaticImagePath(const char *src) {
     std::strncpy(b_static_image_path, src, FNAME_BUFFER_SIZE);
 }
-
-void WindowFeed::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {
-    this->CreateIWindow = std::move(cw);
-}

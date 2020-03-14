@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <functional>
 
 #define NOMINMAX
 
@@ -746,4 +747,9 @@ namespace spt::AppEngine {
         const char *p = static_cast<const char *>(std::memchr(src, '\n', buffer_size));
         return p ? p - src : buffer_size;
     }
+
+    void CreatorIWindow::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {
+        this->CreateIWindow = std::move(cw);
+    }
+
 }
