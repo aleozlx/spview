@@ -1,4 +1,5 @@
 #include "spview.h"
+
 using namespace spt::AppEngine;
 
 std::string getFname(std::string fname) {
@@ -8,7 +9,9 @@ std::string getFname(std::string fname) {
     return fname;
 }
 
-WindowAnalyzerS::WindowAnalyzerS(const std::string &src): b_superpixel_size(18) {
+WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
+        b_superpixel_size(18),
+        b_superpixel_compactness(6) {
     frame_raw = cv::imread(src);
     cv::Size frame_size = frame_raw.size();
     if (b_fit_width) {
@@ -18,45 +21,56 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src): b_superpixel_size(18) 
         imSuperpixels = spt::TexImage(frame_size.width, frame_size.height, 3);
     }
     if (b_fit_width && b_resize_input) {
-        gslic_settings.img_size = { frame_display_size.width, frame_display_size.height };
+        gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
     } else {
-        gslic_settings.img_size = { frame_size.width, frame_size.height };
+        gslic_settings.img_size = {frame_size.width, frame_size.height};
     }
     gslic_settings.no_segs = 64;
     gslic_settings.spixel_size = b_superpixel_size.val;
     gslic_settings.no_iters = 5;
-    gslic_settings.coh_weight = 0.6f;
+    gslic_settings.coh_weight = ((float)b_superpixel_compactness.val) / 10.f;
     gslic_settings.do_enforce_connectivity = true;
     gslic_settings.color_space = gSLICr::CIELAB; // gSLICr::XYZ | gSLICr::RGB
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
     char _title[512];
     std::string fname = getFname(src);
     std::snprintf(_title, sizeof(_title),
-            "Superpixel Analyzer [%s]", fname.c_str());
+                  "Superpixel Analyzer [%s]", fname.c_str());
     title = _title;
 }
 
 bool WindowAnalyzerS::Draw() {
+    const ImVec4 color_header(0.8f, 0.55f, 0.2f, 1.f);
     ImGui::Begin(title.c_str(), &b_is_shown, ImGuiWindowFlags_MenuBar);
     this->DrawMenuBar();
 
     // Prepare texture
-    if(b_fit_width) {
-        const auto winWidth = (int)ImGui::GetWindowWidth();
+    if (b_fit_width) {
+        const auto winWidth = (int) ImGui::GetWindowWidth();
         const int fitWidth = winWidth - 30;
-        if ( std::abs(fitWidth - this->fit_width) > 6) { // resized
+        if (std::abs(fitWidth - this->fit_width) > 6) { // resized
             this->TexFitWidth(fitWidth);
             this->ReloadSuperpixels();
         }
     }
-    ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
-    if (b_superpixel_size.Update()) {
-        gslic_settings.spixel_size = b_superpixel_size.val;
-        this->ReloadSuperpixels();
+
+    if(b_gslic_options) {
+        ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
+        if (b_superpixel_size.Update()) {
+            gslic_settings.spixel_size = b_superpixel_size.val;
+            this->ReloadSuperpixels();
+        }
+
+        ImGui::SliderInt("Compactness", &b_superpixel_compactness, 1, 20);
+        if (b_superpixel_compactness.Update()) {
+            gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
+            this->ReloadSuperpixels();
+        }
     }
 
     // Render texture
-    ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0,0), ImVec2(1,1), ImVec4(1.0f,1.0f,1.0f,1.0f), ImVec4(1.0f,1.0f,1.0f,0.5f));
+    ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
+                 ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
     const cv::Size frame_size = frame.size();
     ImGui::Text("True size: %d x %d;  Resize: %d x %d",
                 frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
@@ -75,7 +89,7 @@ void WindowAnalyzerS::DrawMenuBar() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Save as...");
-            if(ImGui::MenuItem("Close"))
+            if (ImGui::MenuItem("Close"))
                 this->b_is_shown = false;
             ImGui::EndMenu();
         }
@@ -85,7 +99,7 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Superpixels")) {
-            ImGui::MenuItem("gSLIC Options");
+            ImGui::MenuItem("gSLIC Options", nullptr, &b_gslic_options);
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Stats")) {
@@ -111,10 +125,10 @@ void WindowAnalyzerS::DrawMenuBar() {
     }
 }
 
-IWindow* WindowAnalyzerS::Show() {
+IWindow *WindowAnalyzerS::Show() {
     this->ReloadSuperpixels();
     this->b_is_shown = true;
-    return dynamic_cast<IWindow*>(this);
+    return dynamic_cast<IWindow *>(this);
 }
 
 void WindowAnalyzerS::ReloadSuperpixels() {
@@ -123,11 +137,10 @@ void WindowAnalyzerS::ReloadSuperpixels() {
     if (b_fit_width && b_resize_input) {
         cv::resize(frame_raw, frame, frame_display_size, cv::INTER_CUBIC);
         gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
-    }
-    else {
+    } else {
         cv::Size frame_size = frame_raw.size();
         frame = frame_raw;
-        gslic_settings.img_size = { frame_size.width, frame_size.height };
+        gslic_settings.img_size = {frame_size.width, frame_size.height};
     }
 
     // Generate superpixels
@@ -144,8 +157,7 @@ void WindowAnalyzerS::ReloadSuperpixels() {
     if (b_fit_width && !b_resize_input) {
         cv::resize(frame_tex, frame_resized, frame_display_size, cv::INTER_CUBIC);
         imSuperpixels.Load(frame_resized.data);
-    }
-    else imSuperpixels.Load(frame_tex.data);
+    } else imSuperpixels.Load(frame_tex.data);
 #else
     cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGBA);
     imSuperpixels.Load(frame_tex.data);

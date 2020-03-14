@@ -83,6 +83,7 @@ protected:
     int fit_width = 800;
     bool b_fit_width = true;
     bool b_resize_input = true;
+    bool b_gslic_options = true;
 #ifdef FEATURE_GSLICR
     cv::Mat frame_raw; // directly from file
     cv::Mat frame; // input processing
@@ -98,6 +99,7 @@ protected:
 class WindowAnalyzerS: public BaseAnalyzerWindow {
 protected:
     LazyLoader<int> b_superpixel_size;
+    LazyLoader<int> b_superpixel_compactness;
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
