@@ -15,8 +15,11 @@
 #include "superpixel.hpp"
 
 template<typename T>
-struct LazyLoader {
-    T val, _new_val;
+class LazyLoader {
+protected:
+    T _new_val;
+public:
+    T val;
 
     explicit LazyLoader(T init_val) : val(init_val) {
 
@@ -38,6 +41,37 @@ struct LazyLoader {
         if (new_val == val) return false;
         else {
             val = new_val;
+            return true;
+        }
+    }
+};
+
+template<typename T>
+class LazyEnumLoader {
+protected:
+    int _new_val;
+public:
+    T val;
+
+    explicit LazyEnumLoader(T init_val) : val(init_val) {
+
+    }
+
+    /// Sync value to a temp var for data binding
+    void BeginUpdate() {
+        _new_val = val;
+    }
+
+    /// Redirect to the temp var
+    int *operator&() { // NOLINT I know exactly what I am doing!
+        return &_new_val;
+    }
+
+    /// Sync value back and detect changes
+    bool Update() {
+        if (_new_val == val) return false;
+        else {
+            val = static_cast<T>(_new_val);
             return true;
         }
     }
@@ -100,6 +134,8 @@ class WindowAnalyzerS: public BaseAnalyzerWindow {
 protected:
     LazyLoader<int> b_superpixel_size;
     LazyLoader<int> b_superpixel_compactness;
+    LazyLoader<bool> b_superpixel_enforce_conn;
+    LazyEnumLoader<gSLICr::COLOR_SPACE> b_superpixel_colorspace;
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();

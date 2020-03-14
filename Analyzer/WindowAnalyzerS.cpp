@@ -11,7 +11,9 @@ std::string getFname(std::string fname) {
 
 WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
         b_superpixel_size(18),
-        b_superpixel_compactness(6) {
+        b_superpixel_compactness(6),
+        b_superpixel_enforce_conn(true),
+        b_superpixel_colorspace(gSLICr::CIELAB) {
     frame_raw = cv::imread(src);
     cv::Size frame_size = frame_raw.size();
     if (b_fit_width) {
@@ -29,8 +31,8 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
     gslic_settings.spixel_size = b_superpixel_size.val;
     gslic_settings.no_iters = 5;
     gslic_settings.coh_weight = ((float)b_superpixel_compactness.val) / 10.f;
-    gslic_settings.do_enforce_connectivity = true;
-    gslic_settings.color_space = gSLICr::CIELAB; // gSLICr::XYZ | gSLICr::RGB
+    gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
+    gslic_settings.color_space = static_cast<gSLICr::COLOR_SPACE>(b_superpixel_colorspace.val);
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
     char _title[512];
     std::string fname = getFname(src);
@@ -40,7 +42,6 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
 }
 
 bool WindowAnalyzerS::Draw() {
-    const ImVec4 color_header(0.8f, 0.55f, 0.2f, 1.f);
     ImGui::Begin(title.c_str(), &b_is_shown, ImGuiWindowFlags_MenuBar);
     this->DrawMenuBar();
 
@@ -66,6 +67,25 @@ bool WindowAnalyzerS::Draw() {
             gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
             this->ReloadSuperpixels();
         }
+
+        ImGui::Checkbox("Enforce Connectivity", &b_superpixel_enforce_conn);
+        if (b_superpixel_enforce_conn.Update()) {
+            gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
+            this->ReloadSuperpixels();
+        }
+
+        b_superpixel_colorspace.BeginUpdate();
+        ImGui::RadioButton("CIELAB", &b_superpixel_colorspace, gSLICr::CIELAB);
+        ImGui::SameLine();
+        ImGui::RadioButton("XYZ", &b_superpixel_colorspace, gSLICr::XYZ);
+        ImGui::SameLine();
+        ImGui::RadioButton("RGB", &b_superpixel_colorspace, gSLICr::RGB);
+        if (b_superpixel_colorspace.Update()) {
+            gslic_settings.color_space = b_superpixel_colorspace.val;
+            this->ReloadSuperpixels();
+        }
+
+        ImGui::Separator();
     }
 
     // Render texture
