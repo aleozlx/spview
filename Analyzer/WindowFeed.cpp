@@ -5,17 +5,18 @@ const char *WindowFeed::static_image_ext[] = {"*.jpg", "*.png"};
 const char *WindowFeed::static_video_ext[] = {"*.mp4"};
 
 WindowFeed::WindowFeed() {
-    b_static_image_path = new char[sz_static_image_path];
-    b_static_image_path[0] = '\0';
+    CREATE_BUFFER(b_static_image_path);
+    CREATE_BUFFER(b_video_path);
 }
 
 WindowFeed::~WindowFeed() {
     delete[] b_static_image_path;
+    delete[] b_video_path;
 }
 
 WindowFeed::WindowFeed(WindowFeed &&o) noexcept {
-    this->b_static_image_path = o.b_static_image_path;
-    o.b_static_image_path = nullptr;
+    MOVE_BUFFER(b_static_image_path);
+    MOVE_BUFFER(b_video_path);
 }
 
 bool WindowFeed::Draw() {
@@ -34,20 +35,20 @@ bool WindowFeed::Draw() {
         if (pth)
             SetStaticImagePath(pth);
     }
-    ImGui::InputText("", b_static_image_path, sizeof(b_static_image_path));
+    ImGui::InputText("Image Path", b_static_image_path, FNAME_BUFFER_SIZE);
     ImGui::Separator();
 
     ImGui::TextColored(color_header, "From a Video Footage");
     ImGui::Button("Launch");
     ImGui::SameLine();
     if (ImGui::Button("Select Video...")) {
-        const char *pth = tinyfd_openFileDialog("Select a video", b_static_image_path,
+        const char *pth = tinyfd_openFileDialog("Select a video", b_video_path,
                                                 IM_ARRAYSIZE(static_video_ext), static_video_ext,
                                                 nullptr, 0);
 //        if (pth)
 //            SetStaticImagePath(pth);
     }
-    ImGui::InputText("", b_static_image_path, sizeof(b_static_image_path));
+    ImGui::InputText("Video Path", b_video_path, FNAME_BUFFER_SIZE);
     ImGui::Separator();
 
     ImGui::TextColored(color_header, "From a Camera");
@@ -59,7 +60,7 @@ bool WindowFeed::Draw() {
 }
 
 void WindowFeed::SetStaticImagePath(const char *src) {
-    std::strncpy(b_static_image_path, src, sz_static_image_path);
+    std::strncpy(b_static_image_path, src, FNAME_BUFFER_SIZE);
 }
 
 void WindowFeed::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {

@@ -84,10 +84,22 @@ public:
     }
 };
 
+#define FNAME_BUFFER_SIZE (512)
+
+#define CREATE_BUFFER(BUF_NAME) do { \
+    this->BUF_NAME = new char[FNAME_BUFFER_SIZE]; \
+    this->BUF_NAME[0] = '\0'; \
+} while (0)
+
+#define MOVE_BUFFER(BUF_NAME) do { \
+    this->BUF_NAME = o.BUF_NAME; \
+    o.BUF_NAME = nullptr; \
+} while (0)
+
 class WindowFeed: public BaseWindow {
 protected:
-    static const size_t sz_static_image_path = 512;
-    char *b_static_image_path; // char[512]
+    char *b_static_image_path;
+    char *b_video_path;
     std::function<void(std::unique_ptr<IWindow>&&)> CreateIWindow = nullptr;
     int b_camera_selection = 0;
 public:
@@ -140,10 +152,14 @@ protected:
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
 public:
+    static const char *static_image_ext[];
+
     explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
     IWindow* Show() override;
     void TexFitWidth(int fitWidth);
+
+    void SaveOutput(const std::string &pth) const;
 };
 
 class WindowAnalysisD: public BaseAnalyzerWindow {

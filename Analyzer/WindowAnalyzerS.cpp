@@ -9,6 +9,8 @@ std::string getFname(std::string fname) {
     return fname;
 }
 
+const char *WindowAnalyzerS::static_image_ext[] = {"*.jpg", "*.png"};
+
 WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
         b_superpixel_size(18),
         b_superpixel_compactness(6),
@@ -108,7 +110,12 @@ void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
 void WindowAnalyzerS::DrawMenuBar() {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            ImGui::MenuItem("Save as...");
+            if (ImGui::MenuItem("Save as...")) {
+                const char *pth = tinyfd_saveFileDialog("Save image", nullptr,
+                                                        IM_ARRAYSIZE(static_image_ext), static_image_ext,
+                                                        nullptr);
+                this->SaveOutput(pth);
+            }
             if (ImGui::MenuItem("Close"))
                 this->b_is_shown = false;
             ImGui::EndMenu();
@@ -143,6 +150,12 @@ void WindowAnalyzerS::DrawMenuBar() {
         }
         ImGui::EndMenuBar();
     }
+}
+
+void WindowAnalyzerS::SaveOutput(const std::string &pth) const {
+    cv::Mat frame_save;
+    cv::cvtColor(frame_tex, frame_save, cv::COLOR_RGBA2RGB);
+    cv::imwrite(pth, frame_save);
 }
 
 IWindow *WindowAnalyzerS::Show() {
