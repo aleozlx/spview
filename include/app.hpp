@@ -223,4 +223,57 @@ struct Binding {
     }
 };
 
+namespace spt::Math {
+//    ImVec2 FitWidth(const ImVec2 &src, float fit_width);
+//    ImVec2 FitHeight(const ImVec2 &src, float fit_height);
+//    ImVec2 FitBox(const ImVec2 &src, const ImVec2 &fit_limit);
+
+    template<typename V>
+    V FitWidth(const V &src, float fit_width) {
+        if (fit_width <= 0)
+            return V(0, 0);
+        if (src.x == 0)
+            return V(0, 0);
+        float scale_factor = fit_width / src.x;
+        return V(fit_width, src.y * scale_factor);
+    }
+
+    template<typename V>
+    V FitHeight(const V &src, float fit_height) {
+        if (fit_height <= 0)
+            return V(0, 0);
+        if (src.y == 0)
+            return V(0, 0);
+        float scale_factor = fit_height / src.y;
+        return V(src.x * scale_factor, fit_height);
+    }
+
+    template<typename V>
+    V FitBox(const V &src, const V &fit_limit) {
+        if (fit_limit.x <= 0 || fit_limit.y <= 0)
+            return V(0, 0);
+        if (src.x == 0 || src.y == 0)
+            return V(0, 0);
+        float aspect_input = src.x / src.y, aspect_output = fit_limit.x / fit_limit.y;
+        float scale_factor = aspect_input > aspect_output ? fit_limit.x / src.x : fit_limit.y / src.y;
+        return V(src.x * scale_factor, src.y * scale_factor);
+    }
+
+    template<typename S, typename T>
+    S FitWidth(const S &src, T fit_width) {
+        if (fit_width <= 0)
+            return S(0, 0);
+        float scale_factor = ((float)fit_width) / src.width;
+        return S(fit_width, static_cast<T>(src.height * scale_factor));
+    }
+
+    template<typename S, typename T>
+    S FitHeight(const S &src, T fit_height) {
+        if (fit_height <= 0)
+            return S(0, 0);
+        float scale_factor = ((float)fit_height) / src.height;
+        return S(static_cast<T>(src.width * scale_factor), fit_height);
+    }
+}
+
 #endif

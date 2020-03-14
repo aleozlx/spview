@@ -80,11 +80,18 @@ class BaseAnalyzerWindow: public BaseWindow {
 protected:
     bool b_is_shown = false;
     std::string title;
+    int fit_width = 800;
+    bool b_fit_width = true;
+    bool b_resize_input = true;
 #ifdef FEATURE_GSLICR
-    cv::Mat frame, frame_tex;
-    cv::Mat superpixel_contour;
+    cv::Mat frame_raw; // directly from file
+    cv::Mat frame; // input processing
+    cv::Mat frame_tex;
+    cv::Size frame_display_size;
+    cv::Mat frame_resized; // output processing
+    cv::Mat superpixel_contour; // visualized superpixel segmentation
     gSLICr::objects::settings gslic_settings;
-    spt::TexImage imSuperpixels;
+    spt::TexImage imSuperpixels; // texture for display
 #endif
 };
 
@@ -98,6 +105,7 @@ public:
     explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
     IWindow* Show() override;
+    void TexFitWidth(int fitWidth);
 };
 
 class WindowAnalysisD: public BaseAnalyzerWindow {
