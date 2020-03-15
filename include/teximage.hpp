@@ -36,7 +36,7 @@ namespace spt {
         float f32width, f32height;
 
         TexImage(unsigned int width=0, unsigned int height=0, unsigned int channels=0) {
-            this->texid = 0; // The value zero is reserved to represent the default texture for each texture target - Khronos
+            this->texid = 0; // NOLINT The value zero is reserved to represent the default texture for each texture target - Khronos
             this->width = width;
             this->f32width = (float) width;
             this->height = height;
@@ -57,13 +57,13 @@ namespace spt {
 			tex_desc.Usage = D3D11_USAGE_DYNAMIC;
 			tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 			tex_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-			pTexture = NULL;
+			pTexture = nullptr;
 			//ZeroMemory(&mappedResource, sizeof(D3D11_MAPPED_SUBRESOURCE));
 #endif
         }
 
 		virtual ~TexImage() {
-			if (pTexture != NULL) pTexture->Release();
+			if (pTexture != nullptr) pTexture->Release();
 		}
 
         inline ImTextureID id() {
@@ -72,7 +72,7 @@ namespace spt {
 
         void Load(const unsigned char *data) {
 #if FEATURE_DirectX
-			if (pTexture == NULL) {
+			if (pTexture == nullptr) {
 				D3D11_SUBRESOURCE_DATA subResource;
 				subResource.pSysMem = data;
 				subResource.SysMemPitch = tex_desc.Width * 4;

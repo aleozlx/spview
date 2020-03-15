@@ -29,10 +29,10 @@ namespace spt::AppEngine {
 
 
 #if FEATURE_DirectX
-    static ID3D11Device *g_pd3dDevice = NULL;
-    static ID3D11DeviceContext *g_pd3dDeviceContext = NULL;
-    static IDXGISwapChain *g_pSwapChain = NULL;
-    static ID3D11RenderTargetView *g_mainRenderTargetView = NULL;
+    static ID3D11Device *g_pd3dDevice = nullptr;
+    static ID3D11DeviceContext *g_pd3dDeviceContext = nullptr;
+    static IDXGISwapChain *g_pSwapChain = nullptr;
+    static ID3D11RenderTargetView *g_mainRenderTargetView = nullptr;
 
 // Forward declarations of helper functions
     bool CreateDeviceD3D(HWND hWnd);
@@ -74,7 +74,7 @@ namespace spt::AppEngine {
             // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
             // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
             // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-            if (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE)) {
+            if (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
                 ::TranslateMessage(&msg);
                 ::DispatchMessage(&msg);
                 continue;
@@ -110,7 +110,7 @@ namespace spt::AppEngine {
 /// ImGui App boiler plates
     void App::Render(const ImVec4 &clear_color) {
         ImGui::Render();
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
+        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, (float *) &clear_color);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
@@ -165,11 +165,12 @@ namespace spt::AppEngine {
 
     AppInitResult App::Initialize() {
         // Create application window
-        wc = {sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL,
-              _T("ImGui Example"), NULL};
+        wc = {sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
+              nullptr,
+              _T("ImGui Example"), nullptr};
         ::RegisterClassEx(&wc);
         hwnd = ::CreateWindow(wc.lpszClassName, _T("Superpixel Analyzer"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800,
-                              NULL, NULL, wc.hInstance, NULL);
+                              nullptr, nullptr, wc.hInstance, nullptr);
 
         // Initialize Direct3D
         if (!CreateDeviceD3D(hwnd)) {
@@ -264,7 +265,7 @@ namespace spt::AppEngine {
         //createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
         D3D_FEATURE_LEVEL featureLevel;
         const D3D_FEATURE_LEVEL featureLevelArray[2] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0,};
-        if (D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, createDeviceFlags, featureLevelArray, 2,
+        if (D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2,
                                           D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel,
                                           &g_pd3dDeviceContext) != S_OK)
             return false;
@@ -277,29 +278,29 @@ namespace spt::AppEngine {
         CleanupRenderTarget();
         if (g_pSwapChain) {
             g_pSwapChain->Release();
-            g_pSwapChain = NULL;
+            g_pSwapChain = nullptr;
         }
         if (g_pd3dDeviceContext) {
             g_pd3dDeviceContext->Release();
-            g_pd3dDeviceContext = NULL;
+            g_pd3dDeviceContext = nullptr;
         }
         if (g_pd3dDevice) {
             g_pd3dDevice->Release();
-            g_pd3dDevice = NULL;
+            g_pd3dDevice = nullptr;
         }
     }
 
     void CreateRenderTarget() {
         ID3D11Texture2D *pBackBuffer;
         g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-        g_pd3dDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_mainRenderTargetView);
+        g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
         pBackBuffer->Release();
     }
 
     void CleanupRenderTarget() {
         if (g_mainRenderTargetView) {
             g_mainRenderTargetView->Release();
-            g_mainRenderTargetView = NULL;
+            g_mainRenderTargetView = nullptr;
         }
     }
 
@@ -309,7 +310,7 @@ namespace spt::AppEngine {
 
         switch (msg) {
             case WM_SIZE:
-                if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED) {
+                if (g_pd3dDevice != nullptr && wParam != SIZE_MINIMIZED) {
                     CleanupRenderTarget();
                     g_pSwapChain->ResizeBuffers(0, (UINT) LOWORD(lParam), (UINT) HIWORD(lParam), DXGI_FORMAT_UNKNOWN,
                                                 0);
@@ -453,14 +454,14 @@ namespace spt::AppEngine {
 #else
 
     Pipe::Pipe() {
-        hChildStd_IN_Rd = NULL;
-        hChildStd_IN_Wr = NULL;
+        hChildStd_IN_Rd = nullptr;
+        hChildStd_IN_Wr = nullptr;
 
-        hChildStd_OUT_Rd = NULL;
-        hChildStd_OUT_Wr = NULL;
+        hChildStd_OUT_Rd = nullptr;
+        hChildStd_OUT_Wr = nullptr;
 
-        hChildStd_ERR_Rd = NULL;
-        hChildStd_ERR_Wr = NULL;
+        hChildStd_ERR_Rd = nullptr;
+        hChildStd_ERR_Wr = nullptr;
     }
 
     int Pipe::Open(const char *cmdLine, bool write) {
@@ -470,7 +471,7 @@ namespace spt::AppEngine {
 
         saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
         saAttr.bInheritHandle = TRUE;
-        saAttr.lpSecurityDescriptor = NULL;
+        saAttr.lpSecurityDescriptor = nullptr;
 
         // Create a pipe for the child process's STDOUT.
 
@@ -521,14 +522,14 @@ namespace spt::AppEngine {
         siStartInfo.hStdOutput = hChildStd_OUT_Wr;
         siStartInfo.hStdInput = hChildStd_IN_Rd;
         siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
-        bSuccess = CreateProcessA(NULL,
+        bSuccess = CreateProcessA(nullptr,
                                   (char *) cmdLine,     // command line
-                                  NULL,          // process security attributes
-                                  NULL,          // primary thread security attributes
+                                  nullptr,          // process security attributes
+                                  nullptr,          // primary thread security attributes
                                   TRUE,          // handles are inherited
                                   0,             // creation flags
-                                  NULL,          // use parent's environment
-                                  NULL,          // use parent's current directory
+                                  nullptr,          // use parent's environment
+                                  nullptr,          // use parent's current directory
                                   &siStartInfo,  // STARTUPINFO pointer
                                   &piProcInfo);  // receives PROCESS_INFORMATION
 
@@ -546,28 +547,28 @@ namespace spt::AppEngine {
 
         if (write) {
             CloseHandle(hChildStd_OUT_Rd);
-            hChildStd_OUT_Rd = NULL;
+            hChildStd_OUT_Rd = nullptr;
             CloseHandle(hChildStd_OUT_Wr);
-            hChildStd_OUT_Wr = NULL;
+            hChildStd_OUT_Wr = nullptr;
             CloseHandle(hChildStd_ERR_Rd);
-            hChildStd_ERR_Rd = NULL;
+            hChildStd_ERR_Rd = nullptr;
             CloseHandle(hChildStd_ERR_Wr);
-            hChildStd_ERR_Wr = NULL;
+            hChildStd_ERR_Wr = nullptr;
             CloseHandle(hChildStd_IN_Rd);
-            hChildStd_IN_Rd = NULL;
+            hChildStd_IN_Rd = nullptr;
         } else {
             CloseHandle(hChildStd_IN_Rd);
-            hChildStd_IN_Rd = NULL;
+            hChildStd_IN_Rd = nullptr;
             CloseHandle(hChildStd_IN_Wr);
-            hChildStd_IN_Wr = NULL;
+            hChildStd_IN_Wr = nullptr;
             //		CloseHandle(hChildStd_OUT_Rd);
             //		hChildStd_OUT_Rd = NULL;
             CloseHandle(hChildStd_OUT_Wr);
-            hChildStd_OUT_Wr = NULL;
+            hChildStd_OUT_Wr = nullptr;
             CloseHandle(hChildStd_ERR_Rd);
-            hChildStd_ERR_Rd = NULL;
+            hChildStd_ERR_Rd = nullptr;
             CloseHandle(hChildStd_ERR_Wr);
-            hChildStd_ERR_Wr = NULL;
+            hChildStd_ERR_Wr = nullptr;
         }
         return 0;
     }
@@ -575,32 +576,32 @@ namespace spt::AppEngine {
     int Pipe::Close() {
         if (hChildStd_IN_Rd) {
             CloseHandle(hChildStd_IN_Rd);
-            hChildStd_IN_Rd = NULL;
+            hChildStd_IN_Rd = nullptr;
         }
 
         if (hChildStd_IN_Wr) {
             CloseHandle(hChildStd_IN_Wr);
-            hChildStd_IN_Wr = NULL;
+            hChildStd_IN_Wr = nullptr;
         }
 
         if (hChildStd_OUT_Rd) {
             CloseHandle(hChildStd_OUT_Rd);
-            hChildStd_OUT_Rd = NULL;
+            hChildStd_OUT_Rd = nullptr;
         }
 
         if (hChildStd_OUT_Wr) {
             CloseHandle(hChildStd_OUT_Wr);
-            hChildStd_OUT_Wr = NULL;
+            hChildStd_OUT_Wr = nullptr;
         }
 
         if (hChildStd_ERR_Rd) {
             CloseHandle(hChildStd_ERR_Rd);
-            hChildStd_ERR_Rd = NULL;
+            hChildStd_ERR_Rd = nullptr;
         }
 
         if (hChildStd_ERR_Wr) {
             CloseHandle(hChildStd_ERR_Wr);
-            hChildStd_ERR_Wr = NULL;
+            hChildStd_ERR_Wr = nullptr;
         }
 
         return 0;
@@ -609,13 +610,13 @@ namespace spt::AppEngine {
     size_t Pipe::Read(char *buffer, size_t size) {
         // check if the process terminated
         DWORD dwRead;
-        BOOL bSuccess = ReadFile(hChildStd_OUT_Rd, buffer, size, &dwRead, NULL);
+        BOOL bSuccess = ReadFile(hChildStd_OUT_Rd, buffer, size, &dwRead, nullptr);
         return bSuccess ? dwRead : 0;
     }
 
     size_t Pipe::Write(char *buffer, size_t size) {
         DWORD dwWritten;
-        BOOL bSuccess = WriteFile(hChildStd_IN_Wr, buffer, size, &dwWritten, NULL);
+        BOOL bSuccess = WriteFile(hChildStd_IN_Wr, buffer, size, &dwWritten, nullptr);
         return bSuccess ? dwWritten : 0;
     }
 
@@ -748,7 +749,7 @@ namespace spt::AppEngine {
         return p ? p - src : buffer_size;
     }
 
-    void CreatorIWindow::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow>&&)> cw) {
+    void CreatorIWindow::GrantCreateWindow(std::function<void(std::unique_ptr<IWindow> &&)> cw) {
         this->CreateIWindow = std::move(cw);
     }
 

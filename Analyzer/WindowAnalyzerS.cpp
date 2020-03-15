@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "spview.h"
 
 using namespace spt::AppEngine;
@@ -218,7 +220,7 @@ void WindowAnalyzerS::DrawMenuBar() {
 }
 
 void WindowAnalyzerS::ManualResize(cv::Size new_size) {
-    frame_display_size = new_size;
+    frame_display_size = std::move(new_size);
     bool push_fit_width = b_fit_width;
     b_fit_width = true; // emulate resizing
     imSuperpixels = spt::TexImage(frame_display_size.width, frame_display_size.height, 3);
