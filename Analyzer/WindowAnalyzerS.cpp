@@ -109,28 +109,31 @@ void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
 }
 
 template<typename S>
+struct ResultSetDisplaySize {
+    const bool yes;
+    const S new_size;
+
+    static ResultSetDisplaySize<S> Yes(const S new_size) {
+        return {true, new_size};
+    }
+
+    static ResultSetDisplaySize<S> No() {
+        return {false};
+    }
+};
+
+template<typename S>
 class WindowSetDisplaySize : public BaseWindow {
 protected:
     bool b_is_shown = false;
-    std::shared_ptr<S> display_size;
     int b_width, b_height;
     bool b_fixed_aspect = true;
-    std::weak_ptr<bool> singleton;
-    std::function<void()> callback;
+    std::function<void(ResultSetDisplaySize<S>)> callback;
 public:
-    WindowSetDisplaySize(std::shared_ptr<S> display_size, const std::weak_ptr<bool> &singleton, std::function<void()> &&callback = nullptr) :
-            display_size(display_size),
-            b_width(display_size->width),
-            b_height(display_size->height),
-            singleton(singleton),
+    WindowSetDisplaySize(const S &display_size, std::function<void(ResultSetDisplaySize<S>)> &&callback) :
+            b_width(display_size.width),
+            b_height(display_size.height),
             callback(callback) {
-        auto s = singleton.lock();
-        if (s) *s = true;
-    }
-
-    ~WindowSetDisplaySize() override {
-        auto s = singleton.lock();
-        if (s) *s = false;
     }
 
     IWindow *Show() override {
@@ -139,17 +142,22 @@ public:
     }
 
     bool Draw() override {
-        ImGui::Begin("Set Display Size", &b_is_shown);
-        ImGui::Checkbox("Lock Aspect Ratio", &b_fixed_aspect);
+        ImGui::Begin("Set Display Size");
+        ImGui::Checkbox("Lock Aspect Ratio", &b_fixed_aspect); // TODO impl fixed aspect
         ImGui::InputInt("width", &b_width);
         ImGui::InputInt("height", &b_height);
+        ImGui::Separator();
         if (ImGui::Button("Apply")) {
-            *display_size = cv::Size(b_width, b_height);
             b_is_shown = false;
-            if(callback) callback();
+            if (callback)
+                callback(ResultSetDisplaySize<S>::Yes(S(b_width, b_height)));
         }
-        if (ImGui::Button("Cancel"))
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
             b_is_shown = false;
+            if (callback)
+                callback(ResultSetDisplaySize<S>::No());
+        }
         ImGui::End();
         return b_is_shown;
     }
@@ -172,13 +180,12 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
             if (ImGui::MenuItem("Set Display Size") && !*s_wSetDisplaySize) {
+                *s_wSetDisplaySize = true;
                 auto w = std::make_unique<WindowSetDisplaySize<cv::Size>>(
-                        frame_display_size, std::weak_ptr(s_wSetDisplaySize), [this]() {
-                            bool push_fit_width = this->b_fit_width;
-                            this->b_fit_width = true; // emulate resizing
-                            this->imSuperpixels = spt::TexImage(frame_display_size->width, frame_display_size->height, 3);
-                            this->ReloadSuperpixels();
-                            this->b_fit_width = push_fit_width;
+                        *frame_display_size,
+                        [=](const ResultSetDisplaySize<cv::Size> &r) {
+                            if (r.yes) this->ManualResize(r.new_size);
+                            *s_wSetDisplaySize = false;
                         });
                 this->CreateIWindow(std::move(w));
             }
@@ -209,6 +216,15 @@ void WindowAnalyzerS::DrawMenuBar() {
         }
         ImGui::EndMenuBar();
     }
+}
+
+void WindowAnalyzerS::ManualResize(cv::Size new_size) {
+    *frame_display_size = new_size;
+    bool push_fit_width = b_fit_width;
+    b_fit_width = true; // emulate resizing
+    imSuperpixels = spt::TexImage(frame_display_size->width, frame_display_size->height, 3);
+    ReloadSuperpixels();
+    b_fit_width = push_fit_width;
 }
 
 void WindowAnalyzerS::SaveOutput(const std::string &pth) const {

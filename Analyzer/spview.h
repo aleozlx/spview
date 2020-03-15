@@ -154,14 +154,13 @@ protected:
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
+    void TexFitWidth(int fitWidth);
+    void ManualResize(cv::Size new_size);
 public:
     static const char *static_image_ext[];
-
     explicit WindowAnalyzerS(const std::string &src);
     bool Draw() override;
     IWindow* Show() override;
-    void TexFitWidth(int fitWidth);
-
     void SaveOutput(const std::string &pth) const;
 };
 
