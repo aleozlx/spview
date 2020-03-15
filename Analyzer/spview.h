@@ -128,6 +128,7 @@ protected:
     bool b_fit_width = true;
     bool b_resize_input = true;
     bool b_gslic_options = true;
+    ImVec4 b_boundary_color = {200.f/255, 5.f/255, 240.f/255, 0.f};
 #ifdef FEATURE_GSLICR
     cv::Mat frame_raw; // directly from file
     cv::Mat frame; // input processing
@@ -158,6 +159,8 @@ public:
     bool Draw() override;
     IWindow* Show() override;
     void SaveOutput(const std::string &pth) const;
+
+    void UIgSLICOptions();
 };
 
 class WindowAnalysisD: public BaseAnalyzerWindow {

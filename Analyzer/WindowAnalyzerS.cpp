@@ -59,38 +59,8 @@ bool WindowAnalyzerS::Draw() {
         }
     }
 
-    if (b_gslic_options) {
-        ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
-        if (b_superpixel_size.Update()) {
-            gslic_settings.spixel_size = b_superpixel_size.val;
-            this->ReloadSuperpixels();
-        }
-
-        ImGui::SliderInt("Compactness", &b_superpixel_compactness, 1, 20);
-        if (b_superpixel_compactness.Update()) {
-            gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
-            this->ReloadSuperpixels();
-        }
-
-        ImGui::Checkbox("Enforce Connectivity", &b_superpixel_enforce_conn);
-        if (b_superpixel_enforce_conn.Update()) {
-            gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
-            this->ReloadSuperpixels();
-        }
-
-        b_superpixel_colorspace.BeginUpdate();
-        ImGui::RadioButton("CIELAB", &b_superpixel_colorspace, gSLICr::CIELAB);
-        ImGui::SameLine();
-        ImGui::RadioButton("XYZ", &b_superpixel_colorspace, gSLICr::XYZ);
-        ImGui::SameLine();
-        ImGui::RadioButton("RGB", &b_superpixel_colorspace, gSLICr::RGB);
-        if (b_superpixel_colorspace.Update()) {
-            gslic_settings.color_space = b_superpixel_colorspace.val;
-            this->ReloadSuperpixels();
-        }
-
-        ImGui::Separator();
-    }
+    if (b_gslic_options)
+        this->UIgSLICOptions();
 
     // Render texture
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
@@ -98,8 +68,42 @@ bool WindowAnalyzerS::Draw() {
     const cv::Size frame_size = frame.size();
     ImGui::Text("True size: %d x %d;  Resize: %d x %d",
                 frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
+    ImGui::ColorEdit4("Boundary Color", reinterpret_cast<float*>(&b_boundary_color));
     ImGui::End();
     return b_is_shown;
+}
+
+void WindowAnalyzerS::UIgSLICOptions() {
+    ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
+    if (b_superpixel_size.Update()) {
+        gslic_settings.spixel_size = b_superpixel_size.val;
+        ReloadSuperpixels();
+    }
+
+    ImGui::SliderInt("Compactness", &b_superpixel_compactness, 1, 20);
+    if (b_superpixel_compactness.Update()) {
+        gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
+        ReloadSuperpixels();
+    }
+
+    ImGui::Checkbox("Enforce Connectivity", &b_superpixel_enforce_conn);
+    if (b_superpixel_enforce_conn.Update()) {
+        gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
+        ReloadSuperpixels();
+    }
+
+    b_superpixel_colorspace.BeginUpdate();
+    ImGui::RadioButton("CIELAB", &b_superpixel_colorspace, gSLICr::CIELAB);
+    ImGui::SameLine();
+    ImGui::RadioButton("XYZ", &b_superpixel_colorspace, gSLICr::XYZ);
+    ImGui::SameLine();
+    ImGui::RadioButton("RGB", &b_superpixel_colorspace, gSLICr::RGB);
+    if (b_superpixel_colorspace.Update()) {
+        gslic_settings.color_space = b_superpixel_colorspace.val;
+        ReloadSuperpixels();
+    }
+
+    ImGui::Separator();
 }
 
 void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
@@ -178,6 +182,13 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Render")) {
+            if (ImGui::MenuItem("Refresh")) {
+                bool push_fit_width = b_fit_width;
+                b_fit_width = true; // emulate resizing
+                this->ReloadSuperpixels();
+                b_fit_width = push_fit_width;
+            }
+            ImGui::Separator();
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
             if (ImGui::MenuItem("Set Display Size") && !s_wSetDisplaySize) {
@@ -240,7 +251,7 @@ IWindow *WindowAnalyzerS::Show() {
     return dynamic_cast<IWindow *>(this);
 }
 
-void WindowAnalyzerS::ReloadSuperpixels() {
+void WindowAnalyzerS::ReloadSuperpixels() { // TODO investigate errors when b_fit_width = false
 #ifdef FEATURE_GSLICR
     // Input processing
     if (b_fit_width && b_resize_input) {
@@ -257,7 +268,8 @@ void WindowAnalyzerS::ReloadSuperpixels() {
     auto superpixel = _superpixel.Compute(frame);
     superpixel->GetContour(superpixel_contour);
     cv::cvtColor(frame, frame_tex, cv::COLOR_BGR2RGB);
-    frame_tex.setTo(cv::Scalar(200, 5, 240), superpixel_contour);
+    cv::Scalar boundary_color(b_boundary_color.x*255, b_boundary_color.y*255, b_boundary_color.z*255);
+    frame_tex.setTo(boundary_color, superpixel_contour);
 
     // Convert to texture Format
     cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
