@@ -18,6 +18,8 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam
 #endif
 
 namespace spt::AppEngine {
+    char shared_buffer[4096];
+
 #if FEATURE_DirectX
     WNDCLASSEX wc;
     HWND hwnd;

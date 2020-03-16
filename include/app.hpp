@@ -3,6 +3,7 @@
 #include <list>
 #include <memory>
 #include <functional>
+#include <cstring>
 #include "imgui.h"
 
 #if FEATURE_DirectX
@@ -22,6 +23,7 @@
 #endif
 
 namespace spt::AppEngine {
+    extern char shared_buffer[4096];
 #if FEATURE_DirectX
     extern WNDCLASSEX wc;
     extern HWND hwnd;
@@ -281,6 +283,26 @@ namespace spt::Math {
             return S(0, 0);
         float scale_factor = ((float)fit_height) / src.height;
         return S(static_cast<T>(src.width * scale_factor), fit_height);
+    }
+
+    template<typename S>
+    inline float AspectRatio(const S &src) {
+        return static_cast<float>(src.width)/src.height;
+    }
+
+    template<typename S>
+    const char *AspectRatioSS(const S &src) {
+        float ratio = AspectRatio(src);
+        if(std::abs(ratio-1.33f)<0.01f) {
+            strcpy(spt::AppEngine::shared_buffer, "4:3");
+        }
+        else if (std::abs(ratio-1.77f)<0.01f) {
+            strcpy(spt::AppEngine::shared_buffer, "16:9");
+        }
+        else {
+            sprintf(spt::AppEngine::shared_buffer, "%.2f:1", ratio);
+        }
+        return spt::AppEngine::shared_buffer;
     }
 }
 

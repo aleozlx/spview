@@ -68,6 +68,7 @@ bool WindowAnalyzerS::Draw() {
     const cv::Size frame_size = frame.size();
     ImGui::Text("True size: %d x %d;  Resize: %d x %d",
                 frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
+    ImGui::Text("Aspect ratio: %s", spt::Math::AspectRatioSS(frame_display_size));
     ImGui::ColorEdit4("Boundary Color", reinterpret_cast<float*>(&b_boundary_color));
     ImGui::End();
     return b_is_shown;
@@ -108,7 +109,7 @@ void WindowAnalyzerS::UIgSLICOptions() {
 
 void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
     fit_width = fitWidth;
-    const cv::Size frame_size = frame.size();
+    const cv::Size frame_size = frame_raw.size();
     frame_display_size = spt::Math::FitWidth(frame_size, fitWidth);
     imSuperpixels = spt::TexImage(frame_display_size.width, frame_display_size.height, 3);
 }
@@ -241,7 +242,7 @@ void WindowAnalyzerS::ManualResize(cv::Size new_size) {
 
 void WindowAnalyzerS::SaveOutput(const std::string &pth) const {
     cv::Mat frame_save;
-    cv::cvtColor(frame_tex, frame_save, cv::COLOR_RGBA2RGB);
+    cv::cvtColor(frame_tex, frame_save, cv::COLOR_RGBA2BGR);
     cv::imwrite(pth, frame_save);
 }
 
