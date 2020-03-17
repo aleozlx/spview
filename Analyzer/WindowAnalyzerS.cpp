@@ -69,7 +69,7 @@ bool WindowAnalyzerS::Draw() {
     ImGui::Text("True size: %d x %d;  Resize: %d x %d",
                 frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
     ImGui::Text("Aspect ratio: %s", spt::Math::AspectRatioSS(frame_display_size));
-    ImGui::ColorEdit4("Boundary Color", reinterpret_cast<float*>(&b_boundary_color));
+    ImGui::ColorEdit4("Boundary color", reinterpret_cast<float*>(&b_boundary_color));
     ImGui::End();
     return b_is_shown;
 }
@@ -134,11 +134,13 @@ protected:
     bool b_is_shown = false;
     int b_width, b_height;
     bool b_fixed_aspect = true;
+    float init_aspect;
     std::function<void(ResultSetDisplaySize<S>)> callback;
 public:
-    WindowSetDisplaySize(const S &display_size, std::function<void(ResultSetDisplaySize<S>)> &&callback) :
+    WindowSetDisplaySize(const S &display_size, float init_aspect, std::function<void(ResultSetDisplaySize<S>)> &&callback) :
             b_width(display_size.width),
             b_height(display_size.height),
+            init_aspect(init_aspect),
             callback(callback) {
     }
 
@@ -148,10 +150,19 @@ public:
     }
 
     bool Draw() override {
-        ImGui::Begin("Set Display Size");
-        ImGui::Checkbox("Lock Aspect Ratio", &b_fixed_aspect); // TODO impl fixed aspect
+        ImGui::Begin("Set display size");
+        ImGui::Checkbox("Match input aspect ratio", &b_fixed_aspect);
+        if(b_fixed_aspect)
+            ImGui::Text("Input aspect ratio: %s", spt::Math::AspectRatioSS(init_aspect));
         ImGui::InputInt("width", &b_width);
+        if(b_fixed_aspect) {
+            b_height = static_cast<int>(static_cast<float>(b_width) / init_aspect);
+        }
+        if(b_fixed_aspect)
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
         ImGui::InputInt("height", &b_height);
+        if(b_fixed_aspect)
+            ImGui::PopStyleVar();
         ImGui::Separator();
         if (ImGui::Button("Apply")) {
             b_is_shown = false;
@@ -196,6 +207,7 @@ void WindowAnalyzerS::DrawMenuBar() {
                 this->s_wSetDisplaySize = true;
                 auto w = std::make_unique<WindowSetDisplaySize<cv::Size>>(
                         frame_display_size,
+                        spt::Math::AspectRatio(frame_raw.size()),
                         [=](const ResultSetDisplaySize<cv::Size> &r) {
                             if (r.yes) this->ManualResize(r.new_size);
                             this->s_wSetDisplaySize = false;

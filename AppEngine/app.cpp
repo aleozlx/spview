@@ -756,3 +756,18 @@ namespace spt::AppEngine {
     }
 
 }
+
+namespace spt::Math {
+    const char *AspectRatioSS(float ratio) {
+        if(std::abs(ratio-1.33f)<0.01f) {
+            strcpy(spt::AppEngine::shared_buffer, "4:3"); // NOLINT
+        }
+        else if (std::abs(ratio-1.77f)<0.01f) {
+            strcpy(spt::AppEngine::shared_buffer, "16:9"); // NOLINT
+        }
+        else {
+            sprintf(spt::AppEngine::shared_buffer, "%.2f:1", ratio);
+        }
+        return spt::AppEngine::shared_buffer;
+    }
+}

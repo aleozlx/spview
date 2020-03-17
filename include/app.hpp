@@ -290,19 +290,12 @@ namespace spt::Math {
         return static_cast<float>(src.width)/src.height;
     }
 
+    const char *AspectRatioSS(float ratio);
+
     template<typename S>
     const char *AspectRatioSS(const S &src) {
         float ratio = AspectRatio(src);
-        if(std::abs(ratio-1.33f)<0.01f) {
-            strcpy(spt::AppEngine::shared_buffer, "4:3");
-        }
-        else if (std::abs(ratio-1.77f)<0.01f) {
-            strcpy(spt::AppEngine::shared_buffer, "16:9");
-        }
-        else {
-            sprintf(spt::AppEngine::shared_buffer, "%.2f:1", ratio);
-        }
-        return spt::AppEngine::shared_buffer;
+        return AspectRatioSS(ratio);
     }
 }
 
