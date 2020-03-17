@@ -127,7 +127,6 @@ protected:
     int fit_width = 800;
     bool b_fit_width = true;
     bool b_resize_input = true;
-    bool b_gslic_options = true;
     ImVec4 b_boundary_color = {200.f/255, 5.f/255, 240.f/255, 0.f};
 #ifdef FEATURE_GSLICR
     cv::Mat frame_raw; // directly from file
@@ -143,11 +142,8 @@ protected:
 
 class WindowAnalyzerS: public BaseAnalyzerWindow, public spt::AppEngine::CreatorIWindow {
 protected:
-    LazyLoader<int> b_superpixel_size;
-    LazyLoader<int> b_superpixel_compactness;
-    LazyLoader<bool> b_superpixel_enforce_conn;
-    LazyEnumLoader<gSLICr::COLOR_SPACE> b_superpixel_colorspace;
-    bool s_wSetDisplaySize = false;
+    bool swSetDisplaySize = false;
+    bool swgSLICOptions = false;
 
     virtual void DrawMenuBar();
     void ReloadSuperpixels();
@@ -159,8 +155,6 @@ public:
     bool Draw() override;
     IWindow* Show() override;
     void SaveOutput(const std::string &pth) const;
-
-    void UIgSLICOptions();
 };
 
 class WindowAnalysisD: public BaseAnalyzerWindow {

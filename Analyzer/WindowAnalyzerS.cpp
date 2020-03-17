@@ -13,11 +13,7 @@ std::string getFname(std::string fname) {
 
 const char *WindowAnalyzerS::static_image_ext[] = {"*.jpg", "*.png"};
 
-WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
-        b_superpixel_size(18),
-        b_superpixel_compactness(6),
-        b_superpixel_enforce_conn(true),
-        b_superpixel_colorspace(gSLICr::CIELAB) {
+WindowAnalyzerS::WindowAnalyzerS(const std::string &src) {
     frame_raw = cv::imread(src);
     cv::Size frame_size = frame_raw.size();
     if (b_fit_width) {
@@ -32,11 +28,11 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src) :
         gslic_settings.img_size = {frame_size.width, frame_size.height};
     }
     gslic_settings.no_segs = 64;
-    gslic_settings.spixel_size = b_superpixel_size.val;
+    gslic_settings.spixel_size = 18;
     gslic_settings.no_iters = 5;
-    gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
-    gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
-    gslic_settings.color_space = static_cast<gSLICr::COLOR_SPACE>(b_superpixel_colorspace.val);
+    gslic_settings.coh_weight = 0.6f;
+    gslic_settings.do_enforce_connectivity = true;
+    gslic_settings.color_space = gSLICr::CIELAB;
     gslic_settings.seg_method = gSLICr::GIVEN_SIZE; // gSLICr::GIVEN_NUM
     char _title[512];
     std::string fname = getFname(src);
@@ -59,9 +55,6 @@ bool WindowAnalyzerS::Draw() {
         }
     }
 
-    if (b_gslic_options)
-        this->UIgSLICOptions();
-
     // Render texture
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
                  ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
@@ -72,39 +65,6 @@ bool WindowAnalyzerS::Draw() {
     ImGui::ColorEdit4("Boundary color", reinterpret_cast<float*>(&b_boundary_color));
     ImGui::End();
     return b_is_shown;
-}
-
-void WindowAnalyzerS::UIgSLICOptions() {
-    ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
-    if (b_superpixel_size.Update()) {
-        gslic_settings.spixel_size = b_superpixel_size.val;
-        ReloadSuperpixels();
-    }
-
-    ImGui::SliderInt("Compactness", &b_superpixel_compactness, 1, 20);
-    if (b_superpixel_compactness.Update()) {
-        gslic_settings.coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
-        ReloadSuperpixels();
-    }
-
-    ImGui::Checkbox("Enforce Connectivity", &b_superpixel_enforce_conn);
-    if (b_superpixel_enforce_conn.Update()) {
-        gslic_settings.do_enforce_connectivity = b_superpixel_enforce_conn.val;
-        ReloadSuperpixels();
-    }
-
-    b_superpixel_colorspace.BeginUpdate();
-    ImGui::RadioButton("CIELAB", &b_superpixel_colorspace, gSLICr::CIELAB);
-    ImGui::SameLine();
-    ImGui::RadioButton("XYZ", &b_superpixel_colorspace, gSLICr::XYZ);
-    ImGui::SameLine();
-    ImGui::RadioButton("RGB", &b_superpixel_colorspace, gSLICr::RGB);
-    if (b_superpixel_colorspace.Update()) {
-        gslic_settings.color_space = b_superpixel_colorspace.val;
-        ReloadSuperpixels();
-    }
-
-    ImGui::Separator();
 }
 
 void WindowAnalyzerS::TexFitWidth(const int fitWidth) {
@@ -131,26 +91,22 @@ struct ResultSetDisplaySize {
 template<typename S>
 class WindowSetDisplaySize : public BaseWindow {
 protected:
-    bool b_is_shown = false;
+    bool *singleton;
     int b_width, b_height;
     bool b_fixed_aspect = true;
     float init_aspect;
     std::function<void(ResultSetDisplaySize<S>)> callback;
 public:
-    WindowSetDisplaySize(const S &display_size, float init_aspect, std::function<void(ResultSetDisplaySize<S>)> &&callback) :
+    WindowSetDisplaySize(bool *singleton, const S &display_size, float init_aspect, std::function<void(ResultSetDisplaySize<S>)> &&callback) :
+            singleton(singleton),
             b_width(display_size.width),
             b_height(display_size.height),
             init_aspect(init_aspect),
             callback(callback) {
     }
 
-    IWindow *Show() override {
-        this->b_is_shown = true;
-        return dynamic_cast<IWindow *>(this);
-    }
-
     bool Draw() override {
-        ImGui::Begin("Set display size");
+        ImGui::Begin("Set display size", singleton);
         ImGui::Checkbox("Match input aspect ratio", &b_fixed_aspect);
         if(b_fixed_aspect)
             ImGui::Text("Input aspect ratio: %s", spt::Math::AspectRatioSS(init_aspect));
@@ -165,18 +121,81 @@ public:
             ImGui::PopStyleVar();
         ImGui::Separator();
         if (ImGui::Button("Apply")) {
-            b_is_shown = false;
+            *singleton = false;
             if (callback)
                 callback(ResultSetDisplaySize<S>::Yes(S(b_width, b_height)));
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
-            b_is_shown = false;
+            *singleton = false;
             if (callback)
                 callback(ResultSetDisplaySize<S>::No());
         }
         ImGui::End();
-        return b_is_shown;
+        return *singleton;
+    }
+};
+
+class WindowGSlicOptions : public BaseWindow {
+protected:
+    bool *singleton;
+    gSLICr::objects::settings *gslic_settings;
+    std::function<void()> callback;
+    LazyLoader<int> b_superpixel_size;
+    LazyLoader<int> b_superpixel_compactness;
+    LazyLoader<int> b_superpixel_iterations;
+    LazyLoader<bool> b_superpixel_enforce_conn;
+    LazyEnumLoader<gSLICr::COLOR_SPACE> b_superpixel_colorspace;
+public:
+    WindowGSlicOptions(bool *singleton, gSLICr::objects::settings *options, std::function<void()> &&callback):
+            singleton(singleton),
+            gslic_settings(options),
+            callback(callback),
+            b_superpixel_size(18),
+            b_superpixel_compactness(6),
+            b_superpixel_iterations(5),
+            b_superpixel_enforce_conn(true),
+            b_superpixel_colorspace(gSLICr::CIELAB) {
+    }
+
+    bool Draw() override {
+        ImGui::Begin("gSLIC Options", singleton);
+        ImGui::SliderInt("Superpixel Size", &b_superpixel_size, 8, 64);
+        if (b_superpixel_size.Update()) {
+            gslic_settings->spixel_size = b_superpixel_size.val;
+            callback();
+        }
+
+        ImGui::SliderInt("Compactness", &b_superpixel_compactness, 1, 20);
+        if (b_superpixel_compactness.Update()) {
+            gslic_settings->coh_weight = ((float) b_superpixel_compactness.val) / 10.f;
+            callback();
+        }
+
+        ImGui::Checkbox("Enforce Connectivity", &b_superpixel_enforce_conn);
+        if (b_superpixel_enforce_conn.Update()) {
+            gslic_settings->do_enforce_connectivity = b_superpixel_enforce_conn.val;
+            callback();
+        }
+
+        ImGui::SliderInt("Iterations", &b_superpixel_iterations, 1, 20);
+        if (b_superpixel_iterations.Update()) {
+            gslic_settings->no_iters = b_superpixel_iterations.val;
+            callback();
+        }
+
+        b_superpixel_colorspace.BeginUpdate();
+        ImGui::RadioButton("CIELAB", &b_superpixel_colorspace, gSLICr::CIELAB);
+        ImGui::SameLine();
+        ImGui::RadioButton("XYZ", &b_superpixel_colorspace, gSLICr::XYZ);
+        ImGui::SameLine();
+        ImGui::RadioButton("RGB", &b_superpixel_colorspace, gSLICr::RGB);
+        if (b_superpixel_colorspace.Update()) {
+            gslic_settings->color_space = b_superpixel_colorspace.val;
+            callback();
+        }
+        ImGui::End();
+        return *singleton;
     }
 };
 
@@ -203,21 +222,29 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::Separator();
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
-            if (ImGui::MenuItem("Set Display Size") && !s_wSetDisplaySize) {
-                this->s_wSetDisplaySize = true;
+            if (ImGui::MenuItem("Set Display Size") && !swSetDisplaySize) {
+                this->swSetDisplaySize = true;
                 auto w = std::make_unique<WindowSetDisplaySize<cv::Size>>(
+                        &this->swSetDisplaySize,
                         frame_display_size,
                         spt::Math::AspectRatio(frame_raw.size()),
                         [=](const ResultSetDisplaySize<cv::Size> &r) {
                             if (r.yes) this->ManualResize(r.new_size);
-                            this->s_wSetDisplaySize = false;
+                            this->swSetDisplaySize = false;
                         });
                 this->CreateIWindow(std::move(w));
             }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Superpixels")) {
-            ImGui::MenuItem("gSLIC Options", nullptr, &b_gslic_options);
+            if (ImGui::MenuItem("gSLIC Options") && !swgSLICOptions) {
+                this->swgSLICOptions = true;
+                auto w = std::make_unique<WindowGSlicOptions>(
+                        &this->swgSLICOptions,
+                        &this->gslic_settings,
+                        std::bind(&WindowAnalyzerS::ReloadSuperpixels, this));
+                this->CreateIWindow(std::move(w));
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Stats")) {
