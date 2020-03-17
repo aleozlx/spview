@@ -206,7 +206,8 @@ void WindowAnalyzerS::DrawMenuBar() {
                 const char *pth = tinyfd_saveFileDialog("Save image", nullptr,
                                                         IM_ARRAYSIZE(static_image_ext), static_image_ext,
                                                         nullptr);
-                this->SaveOutput(pth);
+                if(pth)
+                    this->SaveOutput(pth);
             }
             if (ImGui::MenuItem("Close"))
                 this->b_is_shown = false;
