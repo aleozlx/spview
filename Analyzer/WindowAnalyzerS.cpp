@@ -59,7 +59,7 @@ bool WindowAnalyzerS::Draw() {
     ImGui::Image(imSuperpixels.id(), imSuperpixels.size(), ImVec2(0, 0), ImVec2(1, 1), ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
                  ImVec4(1.0f, 1.0f, 1.0f, 0.5f));
     const cv::Size frame_size = frame.size();
-    ImGui::Text("True size: %d x %d;  Resize: %d x %d",
+    ImGui::Text("True size: %d x %d;  Display size: %d x %d",
                 frame_size.width, frame_size.height, frame_display_size.width, frame_display_size.height);
     ImGui::Text("Aspect ratio: %s", spt::Math::AspectRatioSS(frame_display_size));
     ImGui::ColorEdit4("Boundary color", reinterpret_cast<float*>(&b_boundary_color));
@@ -223,7 +223,7 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::Separator();
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
-            if (ImGui::MenuItem("Set Display Size") && !swSetDisplaySize) {
+            if (ImGui::MenuItem("Set Display Size...") && !swSetDisplaySize) {
                 this->swSetDisplaySize = true;
                 auto w = std::make_unique<WindowSetDisplaySize<cv::Size>>(
                         &this->swSetDisplaySize,
@@ -238,7 +238,7 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Superpixels")) {
-            if (ImGui::MenuItem("gSLIC Options") && !swgSLICOptions) {
+            if (ImGui::MenuItem("gSLIC Options...") && !swgSLICOptions) {
                 this->swgSLICOptions = true;
                 auto w = std::make_unique<WindowGSlicOptions>(
                         &this->swgSLICOptions,
