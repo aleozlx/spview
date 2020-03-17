@@ -22,7 +22,7 @@ WindowAnalyzerS::WindowAnalyzerS(const std::string &src) {
     } else {
         imSuperpixels = spt::TexImage(frame_size.width, frame_size.height, 3);
     }
-    if (b_fit_width && b_resize_input) {
+    if (b_resize_input) {
         gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
     } else {
         gslic_settings.img_size = {frame_size.width, frame_size.height};
@@ -214,12 +214,8 @@ void WindowAnalyzerS::DrawMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Render")) {
-            if (ImGui::MenuItem("Refresh")) {
-                bool push_fit_width = b_fit_width;
-                b_fit_width = true; // emulate resizing
+            if (ImGui::MenuItem("Refresh"))
                 this->ReloadSuperpixels();
-                b_fit_width = push_fit_width;
-            }
             ImGui::Separator();
             ImGui::MenuItem("Fit Width", nullptr, &b_fit_width);
             ImGui::MenuItem("Resize Input", nullptr, &b_resize_input);
@@ -273,11 +269,8 @@ void WindowAnalyzerS::DrawMenuBar() {
 
 void WindowAnalyzerS::ManualResize(cv::Size new_size) {
     frame_display_size = std::move(new_size);
-    bool push_fit_width = b_fit_width;
-    b_fit_width = true; // emulate resizing
     imSuperpixels = spt::TexImage(frame_display_size.width, frame_display_size.height, 3);
     ReloadSuperpixels();
-    b_fit_width = push_fit_width;
 }
 
 void WindowAnalyzerS::SaveOutput(const std::string &pth) const {
@@ -292,10 +285,10 @@ IWindow *WindowAnalyzerS::Show() {
     return dynamic_cast<IWindow *>(this);
 }
 
-void WindowAnalyzerS::ReloadSuperpixels() { // TODO investigate errors when b_fit_width = false
+void WindowAnalyzerS::ReloadSuperpixels() {
 #ifdef FEATURE_GSLICR
     // Input processing
-    if (b_fit_width && b_resize_input) {
+    if (b_resize_input) {
         cv::resize(frame_raw, frame, frame_display_size, cv::INTER_CUBIC);
         gslic_settings.img_size = {frame_display_size.width, frame_display_size.height};
     } else {
@@ -316,7 +309,7 @@ void WindowAnalyzerS::ReloadSuperpixels() { // TODO investigate errors when b_fi
     cv::cvtColor(frame_tex, frame_tex, cv::COLOR_RGB2RGBA);
 
     // Output processing
-    if (b_fit_width && !b_resize_input) {
+    if (!b_resize_input) {
         cv::resize(frame_tex, frame_resized, frame_display_size, cv::INTER_CUBIC);
         imSuperpixels.Load(frame_resized.data);
     } else imSuperpixels.Load(frame_tex.data);
